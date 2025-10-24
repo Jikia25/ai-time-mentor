@@ -1,4 +1,4 @@
-// background.js - COMPLETE VERSION (no external imports needed)
+// background.js - FASTER VERSION (quick emotion detection)
 
 // ===== EMOTION TRACKER CODE (inline) =====
 function msToMin(ms){ return Math.round(ms/60000); }
@@ -34,7 +34,9 @@ function analyzeAggregates(aggregates){
   const textSamples = Array.isArray(aggregates.samples) ? aggregates.samples : [];
 
   const totalActiveMs = productiveMs + distractingMs + otherMs;
-  const activeMinutes = Math.max(totalActiveMs / 60000, 1);
+  
+  // CHANGED: უფრო სწრაფი დეტექტი - მინიმალური დრო 0.1 წუთი (6 წამი)
+  const activeMinutes = Math.max(totalActiveMs / 60000, 0.1);
 
   const focusScore = clamp(productiveMs / Math.max(totalActiveMs, 1));
   const switchRate = tabSwitches / activeMinutes;
@@ -131,6 +133,9 @@ async function startTracking(tabId, url){
   const domain = domainFromUrl(url);
   current = { tabId, url, domain, startTs: Date.now(), category: classify(domain) };
   console.log('[TM] startTracking', domain, current.category);
+  
+  // CHANGED: დაუყოვნებლივ recompute-ს გაუშვით ახალი session-ისთვის
+  setTimeout(() => recomputeEmotionProfile(), 100);
 }
 
 async function stopCurrent(reason = ''){
@@ -140,6 +145,8 @@ async function stopCurrent(reason = ''){
   await saveDuration(current.category, duration);
   console.log('[TM] stopCurrent', current.domain, current.category, 'ms=', duration, 'reason=', reason);
   current = null;
+  
+  // CHANGED: recompute-ს გაუშვით ყოველ tab switch-ზე
   recomputeEmotionProfile();
 }
 
@@ -177,6 +184,7 @@ function recomputeEmotionProfile(){
     if(!res.consentText) normalized.samples = [];
 
     try {
+      // CHANGED: ემოციის profile-ს ყოველთვის გენერირებს, თუნდაც 0 მონაცემებით
       const profile = analyzeAggregates(normalized);
       chrome.storage.local.set({ emotionProfile: profile }, () => {
         console.log('[TM] ✅ emotionProfile updated successfully:', profile);
@@ -212,10 +220,12 @@ chrome.windows.onFocusChanged.addListener(async (windowId) => {
   }
 });
 
-chrome.alarms.create('tm_heartbeat', { periodInMinutes: 1 });
+// CHANGED: Heartbeat 15 წამში ერთხელ (ნაცვლად 1 წუთის)
+chrome.alarms.create('tm_heartbeat', { periodInMinutes: 0.25 }); // 15 seconds
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if(alarm.name === 'tm_heartbeat' && current){
-    const chunk = 60 * 1000;
+    // CHANGED: 15 წამის chunk
+    const chunk = 15 * 1000;
     await saveDuration(current.category, chunk);
     current.startTs = Date.now();
     console.log('[TM] heartbeat flush for', current.domain);
@@ -230,13 +240,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     chrome.storage.local.get(['usage'], (res) => {
       const usage = res.usage || {};
       usage.typingKeystrokes = (usage.typingKeystrokes || 0) + 1;
-      chrome.storage.local.set({ usage });
+      chrome.storage.local.set({ usage }, () => {
+        // CHANGED: recompute-ს გაუშვით keystroke-ზეც
+        recomputeEmotionProfile();
+      });
     });
   } else if(msg.type === 'tabSwitch'){
     chrome.storage.local.get(['usage'], (res) => {
       const usage = res.usage || {};
       usage.tabSwitches = (usage.tabSwitches || 0) + 1;
-      chrome.storage.local.set({ usage });
+      chrome.storage.local.set({ usage }, () => {
+        // CHANGED: recompute-ს გაუშვით tab switch-ზეც
+        recomputeEmotionProfile();
+      });
     });
   } else if(msg.type === 'getAggregates'){
     chrome.storage.local.get(['usage','emotionProfile'], (res) => sendResponse(res));
@@ -260,12 +276,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   } else if(msg.type === 'recomputeProfile'){
     try {
       recomputeEmotionProfile();
+      // CHANGED: timeout 500ms -> 200ms (უფრო სწრაფი)
       setTimeout(() => {
         chrome.storage.local.get(['emotionProfile'], (res) => {
           console.log('[TM] Sending profile to popup:', res.emotionProfile);
           sendResponse({ ok: true, profile: res.emotionProfile || null });
         });
-      }, 500);
+      }, 200);
       return true;
     } catch(e){
       console.error('[TM] recomputeProfile error:', e);
@@ -275,13 +292,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 });
 
+// CHANGED: idle detection 30 წამი (ნაცვლად 15-ის)
 if(chrome.idle && chrome.idle.setDetectionInterval){
-  try { chrome.idle.setDetectionInterval(15); } catch(e){}
+  try { chrome.idle.setDetectionInterval(30); } catch(e){}
   chrome.idle.onStateChanged.addListener((state) => {
     if(state === 'idle' || state === 'locked'){
       chrome.storage.local.get(['usage'], (res) => {
         const usage = res.usage || {};
-        usage.idleMs = (usage.idleMs || 0) + 15000;
+        usage.idleMs = (usage.idleMs || 0) + 30000;
         chrome.storage.local.set({ usage });
       });
     }
@@ -294,6 +312,8 @@ chrome.runtime.onInstalled.addListener(() => {
     if(!res.usage) {
       chrome.storage.local.set({ usage: {} }, () => {
         console.log('[TM] Initialized empty usage storage');
+        // CHANGED: პირველივე დაყენებაზე recompute-ს გაუშვით
+        recomputeEmotionProfile();
       });
     }
   });
@@ -307,4 +327,6 @@ chrome.runtime.onStartup.addListener(async () => {
   } catch(e){
     console.warn('[TM] startup tracking error', e);
   }
+  // CHANGED: startup-ზეც recompute-ს გაუშვით
+  recomputeEmotionProfile();
 });
