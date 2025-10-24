@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>AI Time Mentor</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -20,7 +20,23 @@
       <div id="emotion-action" class="mini"></div>
     </div>
 
-    <div class="buttons">
+    <h4>Reminders</h4>
+    <div id="remindersList" class="mini">No scheduled reminders</div>
+
+    <!-- ===== AI Consent toggle (added) ===== -->
+    <div class="settings-section" style="margin-top:12px; padding-top:10px; border-top:1px solid #eee;">
+      <label style="display:flex; align-items:center; gap:8px;">
+        <input id="consentSamples" type="checkbox" />
+        <span style="font-size:13px; color:#666">
+          Allow storing text samples for improved insights
+        </span>
+      </label>
+      <p style="font-size:12px; color:#888; margin:8px 0 0;">
+        If enabled, short text samples (only with your explicit action) will be stored locally to improve analysis. No samples are sent anywhere without consent.
+      </p>
+    </div>
+
+    <div class="buttons" style="margin-top:12px;">
       <button id="clear">Clear Data</button>
       <button id="refreshInsight">Refresh Insight</button>
       <button id="dashboard">View Dashboard</button>

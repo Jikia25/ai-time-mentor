@@ -390,7 +390,7 @@ button:disabled {
 
 .dashboard footer button { 
   padding: 10px 20px; 
-  background: #4cd137; 
+  background: #8137d1; 
   color: white; 
   border: none; 
   border-radius: 6px; 
@@ -439,4 +439,14 @@ button:disabled {
   .dashboard footer button {
     width: 100%;
   }
+}
+
+
+#aiBadge {
+  font-size: 12px;
+  margin-left: 8px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: white;
+  background: #6c5ce7;
 }

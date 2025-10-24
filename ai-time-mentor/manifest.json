@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "AI Time Mentor",
-  "description": "Track your focus time, behavior, and emotional patterns with AI insights.",
+  "description": "Track your focus & productivity.",
   "version": "1.0.0",
   "permissions": [
     "tabs",
@@ -9,11 +9,14 @@
     "activeTab",
     "scripting",
     "idle",
-    "alarms"
+    "alarms",
+    "notifications"
   ],
-  "host_permissions": ["<all_urls>"],
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.optimized.js"
   },
   "content_scripts": [
     {
