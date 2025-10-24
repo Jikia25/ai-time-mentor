@@ -3,7 +3,14 @@
   "name": "AI Time Mentor",
   "description": "Track your focus time, behavior, and emotional patterns with AI insights.",
   "version": "1.0.0",
-  "permissions": ["tabs", "storage", "activeTab", "scripting", "idle"],
+  "permissions": [
+    "tabs",
+    "storage",
+    "activeTab",
+    "scripting",
+    "idle",
+    "alarms"
+  ],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js"
