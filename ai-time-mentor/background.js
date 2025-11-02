@@ -1,5 +1,23 @@
 // background.optimized.js - Full final: tracking, batching, mediaPlayMs, reminders, notifications
+
+// Import AI service for service worker
+try {
+  importScripts('ai-service.js');
+} catch (e) {
+  console.warn('[TM] Could not import ai-service.js:', e);
+}
+
 (function () {
+  // --- AI Service Integration ---
+  let aiService = null;
+  try {
+    if (typeof AIService !== 'undefined') {
+      aiService = new AIService();
+    }
+  } catch (e) {
+    console.warn('[TM] AI Service not available:', e);
+  }
+
   // --- Helpers: tiny promise wrappers for chrome.* callbacks ---
   function cbToPromise(fn, ...args) {
     return new Promise((resolve, reject) => {
@@ -318,17 +336,45 @@
 
       const profile = analyzeAggregates(normalized);
 
-      // Save profile and mark source as 'local' by default
+      // Try to enhance with AI insights if configured
+      let finalProfile = { ...profile };
+      let profileSource = "local";
+
+      if (aiService) {
+        try {
+          const aiInsights = await aiService.generateInsights({
+            ...normalized,
+            focusPct: profile.focusPct,
+            stress: profile.stress,
+            mood: profile.mood
+          });
+
+          if (aiInsights) {
+            // Merge AI insights into profile
+            finalProfile.insight = aiInsights.insight || profile.insight;
+            finalProfile.action = aiInsights.action || profile.action;
+            if (aiInsights.mood) {
+              finalProfile.mood = aiInsights.mood;
+            }
+            profileSource = "ai";
+            console.log("[TM] 🤖 AI insights generated:", aiInsights);
+          }
+        } catch (e) {
+          console.warn("[TM] AI insights failed, using local analysis:", e);
+        }
+      }
+
+      // Save profile with source indicator
       await storageSet({
-        emotionProfile: profile,
-        profileSource: "local",
+        emotionProfile: finalProfile,
+        profileSource: profileSource,
         profileUpdatedAt: Date.now(),
       });
-      console.log("[TM] ✅ emotionProfile updated", profile);
+      console.log("[TM] ✅ emotionProfile updated", finalProfile, `(${profileSource})`);
 
       // schedule reminders based on the freshly computed profile
       try {
-        checkAndScheduleReminders(profile);
+        checkAndScheduleReminders(finalProfile);
       } catch (e) {
         console.warn("[TM] checkReminders err", e);
       }
@@ -755,6 +801,35 @@
         } else if (msg.type === "dismissReminder" && msg.id) {
           await removeReminderById(msg.id);
           sendResponse?.({ ok: true });
+        } else if (msg.type === "generateWeeklyReport") {
+          if (!aiService) {
+            sendResponse?.({ ok: false, error: "AI service not available" });
+            return;
+          }
+          try {
+            const weeklyData = msg.data || {};
+            const report = await aiService.generateWeeklyReport(weeklyData);
+            sendResponse?.({ ok: true, report });
+          } catch (e) {
+            sendResponse?.({ ok: false, error: String(e) });
+          }
+        } else if (msg.type === "generateGoals") {
+          if (!aiService) {
+            sendResponse?.({ ok: false, error: "AI service not available" });
+            return;
+          }
+          try {
+            const res = await storageGet(["usage", "emotionProfile"]);
+            const usage = res.usage || {};
+            const profile = res.emotionProfile || {};
+            const goals = await aiService.generateGoals({
+              ...usage,
+              ...profile
+            });
+            sendResponse?.({ ok: true, goals });
+          } catch (e) {
+            sendResponse?.({ ok: false, error: String(e) });
+          }
         } else {
           sendResponse?.({ ok: false, reason: "unknown" });
         }

@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Time Mentor - პარამეტრები</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+      margin: 0;
+    }
+
+    .settings-container {
+      max-width: 700px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+
+    .settings-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+
+    .settings-header h1 {
+      margin: 0 0 10px 0;
+      font-size: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .settings-header p {
+      margin: 0;
+      opacity: 0.9;
+      font-size: 14px;
+    }
+
+    .settings-content {
+      padding: 30px;
+    }
+
+    .section {
+      margin-bottom: 30px;
+      padding: 20px;
+      background: #f8f9fc;
+      border-radius: 12px;
+      border-left: 4px solid #667eea;
+    }
+
+    .section h2 {
+      margin: 0 0 15px 0;
+      font-size: 18px;
+      color: #2c3e50;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .provider-selector {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .provider-card {
+      background: white;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 15px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .provider-card:hover {
+      border-color: #667eea;
+      transform: translateY(-2px);
+    }
+
+    .provider-card.active {
+      border-color: #667eea;
+      background: linear-gradient(135deg, #f0f3ff 0%, #e8ecff 100%);
+    }
+
+    .provider-icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+
+    .provider-name {
+      font-weight: 600;
+      color: #2c3e50;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .provider-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+
+    .badge-free {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .badge-paid {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: #2c3e50;
+      font-size: 14px;
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: inherit;
+      box-sizing: border-box;
+    }
+
+    .form-group input[type="password"] {
+      font-family: monospace;
+    }
+
+    .api-key-input {
+      display: flex;
+      gap: 8px;
+    }
+
+    .api-key-input input {
+      flex: 1;
+    }
+
+    .toggle-visibility {
+      padding: 10px 16px;
+      background: #f0f0f0;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-top: 10px;
+    }
+
+    .status-connected {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .status-disconnected {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .status-testing {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .info-box {
+      background: #e3f2fd;
+      border-left: 4px solid #2196f3;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 20px 0;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .info-box strong {
+      display: block;
+      margin-bottom: 8px;
+      color: #1976d2;
+    }
+
+    .info-box a {
+      color: #2196f3;
+      text-decoration: none;
+    }
+
+    .info-box a:hover {
+      text-decoration: underline;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-secondary {
+      background: #f0f0f0;
+      color: #667eea;
+    }
+
+    .btn-success {
+      background: #44bd32;
+      color: white;
+    }
+
+    .features-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .feature-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: white;
+      border-radius: 8px;
+      transition: opacity 0.3s;
+    }
+
+    .feature-item.disabled {
+      opacity: 0.4;
+    }
+
+    .feature-icon {
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+
+    .feature-info {
+      flex: 1;
+    }
+
+    .feature-title {
+      font-weight: 600;
+      color: #2c3e50;
+      font-size: 14px;
+      margin-bottom: 2px;
+    }
+
+    .feature-desc {
+      font-size: 12px;
+      color: #7f8c8d;
+    }
+
+    .footer-actions {
+      padding: 20px 30px;
+      background: #f8f9fc;
+      border-top: 1px solid #e0e0e0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .model-info {
+      font-size: 12px;
+      color: #7f8c8d;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="settings-container">
+    <!-- Header -->
+    <div class="settings-header">
+      <h1>
+        <span>⚙️</span>
+        AI პარამეტრები
+      </h1>
+      <p>კონფიგურაცია AI ფუნქციებისთვის</p>
+    </div>
+
+    <!-- Content -->
+    <div class="settings-content">
+      <!-- Provider Selection -->
+      <div class="section">
+        <h2>🤖 აირჩიე AI პროვაიდერი</h2>
+        <div class="provider-selector">
+          <div class="provider-card" data-provider="gemini">
+            <div class="provider-icon">🔷</div>
+            <div class="provider-name">Google Gemini</div>
+            <span class="provider-badge badge-free">უფასო</span>
+          </div>
+          <div class="provider-card" data-provider="groq">
+            <div class="provider-icon">⚡</div>
+            <div class="provider-name">Groq</div>
+            <span class="provider-badge badge-free">უფასო</span>
+          </div>
+          <div class="provider-card" data-provider="openai">
+            <div class="provider-icon">🧠</div>
+            <div class="provider-name">OpenAI</div>
+            <span class="provider-badge badge-paid">გადახდილი</span>
+          </div>
+        </div>
+
+        <!-- API Key Input -->
+        <div class="form-group">
+          <label for="apiKey">API Key:</label>
+          <div class="api-key-input">
+            <input
+              type="password"
+              id="apiKey"
+              placeholder="შეიყვანე API key..."
+            />
+            <button class="toggle-visibility" id="toggleKey" title="აჩვენე/დამალე">
+              👁️
+            </button>
+          </div>
+          <div id="apiStatus" class="status-indicator status-disconnected">
+            <span>❌</span> არ არის კონფიგურირებული
+          </div>
+        </div>
+
+        <!-- Model Selection -->
+        <div class="form-group">
+          <label for="modelSelect">AI მოდელი:</label>
+          <select id="modelSelect">
+            <!-- Options will be populated by JavaScript -->
+          </select>
+          <div class="model-info" id="modelInfo"></div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="button-group">
+          <button class="btn btn-success" id="saveConfig">
+            <span>💾</span> შენახვა
+          </button>
+          <button class="btn btn-secondary" id="testConnection">
+            <span>🔌</span> კავშირის ტესტი
+          </button>
+        </div>
+      </div>
+
+      <!-- Info Box -->
+      <div class="info-box" id="providerInfo">
+        <!-- Will be populated by JavaScript -->
+      </div>
+
+      <!-- AI Features -->
+      <div class="section">
+        <h2>✨ AI ფუნქციები</h2>
+        <div class="features-list">
+          <div class="feature-item" id="feature-insights">
+            <span class="feature-icon">🧠</span>
+            <div class="feature-info">
+              <div class="feature-title">ჭკვიანი ანალიზი</div>
+              <div class="feature-desc">AI-ით გენერირებული ინსაითები პროდუქტიულობის შესახებ</div>
+            </div>
+          </div>
+
+          <div class="feature-item" id="feature-reminders">
+            <span class="feature-icon">⏰</span>
+            <div class="feature-info">
+              <div class="feature-title">ინტელექტუალური შეხსენებები</div>
+              <div class="feature-desc">კონტექსტზე დაფუძნებული რეკომენდაციები შესვენებისთვის</div>
+            </div>
+          </div>
+
+          <div class="feature-item" id="feature-goals">
+            <span class="feature-icon">🎯</span>
+            <div class="feature-info">
+              <div class="feature-title">პერსონალიზებული მიზნები</div>
+              <div class="feature-desc">SMART მიზნები შენი მუშაობის პატერნების მიხედვით</div>
+            </div>
+          </div>
+
+          <div class="feature-item" id="feature-reports">
+            <span class="feature-icon">📊</span>
+            <div class="feature-info">
+              <div class="feature-title">კვირეული რეპორტები</div>
+              <div class="feature-desc">სრული ანალიზი და რეკომენდაციები</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer-actions">
+      <button class="btn btn-secondary" id="backToPopup">
+        ← უკან
+      </button>
+      <button class="btn btn-primary" id="openDashboard">
+        📊 Dashboard
+      </button>
+    </div>
+  </div>
+
+  <script src="ai-service.js"></script>
+  <script src="settings.js"></script>
+</body>
+</html>
