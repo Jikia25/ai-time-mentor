@@ -4,11 +4,21 @@ A Chrome extension that tracks your browsing habits, analyzes your focus pattern
 
 ## ✨ Features
 
+### Core Features
 - **🎯 Focus Tracking**: Monitors time spent on productive vs. distracting websites
 - **😌 Emotion Detection**: Analyzes your work patterns to detect stress and mood
 - **💡 Smart Insights**: Provides actionable recommendations based on your behavior
 - **📊 Visual Dashboard**: Beautiful analytics showing your productivity metrics
 - **⚡ Real-time Monitoring**: Tracks tab switches, typing intensity, and idle time
+
+### 🤖 NEW: AI-Powered Features
+- **✨ AI Insights**: Get intelligent productivity analysis from Google Gemini, Groq, or OpenAI
+- **🎯 Personalized Goals**: AI generates SMART goals based on your patterns
+- **📈 Weekly Reports**: Comprehensive AI-generated productivity reports in Georgian
+- **🧠 Smart Recommendations**: Context-aware suggestions from AI
+- **🆓 Free AI Options**: Use Google Gemini or Groq for free!
+
+> **See [AI_SETUP.md](AI_SETUP.md) for detailed AI configuration guide**
 
 ## 🚀 Installation
 
@@ -62,13 +72,18 @@ cd ai-time-mentor
 ```
 ai-time-mentor/
 ├── manifest.json          # Extension configuration
-├── background.js          # Background service worker (includes emotion tracker)
+├── background.js          # Background service worker (includes emotion tracker & AI)
 ├── content_script.js      # Content script for page tracking
 ├── popup.html            # Extension popup UI
 ├── popup.js              # Popup logic
 ├── dashboard.html        # Full dashboard page
 ├── dashboard.js          # Dashboard logic
+├── settings.html         # AI configuration page
+├── settings.js           # Settings page logic
+├── ai-service.js         # AI service module (Gemini, Groq, OpenAI)
 ├── style.css             # Styles for popup and dashboard
+├── README.md             # Main documentation
+├── AI_SETUP.md           # AI setup guide
 └── icons/                # Extension icons
     ├── icon16.png
     ├── icon48.png
@@ -113,9 +128,14 @@ const SENTIMENT_LEXICON = {
 ## 🔒 Privacy
 
 - **All data stays local** - stored in your browser using Chrome's storage API
-- **No external servers** - no data is sent anywhere
+- **No external servers** - extension code runs entirely in your browser
 - **No tracking** - your browsing patterns never leave your device
+- **AI is optional** - works great without AI, AI features require your chosen provider
+- **You control AI data** - only aggregated stats sent to AI, never raw URLs or personal info
+- **API keys secure** - stored locally in browser, never transmitted to third parties
 - **Open source** - inspect the code yourself!
+
+See [AI_SETUP.md](AI_SETUP.md) for details on AI privacy.
 
 ## 📊 Emotion Detection Algorithm
 
@@ -148,12 +168,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🔮 Future Features
 
-- [ ] Weekly/monthly analytics reports
-- [ ] Custom productivity goals
-- [ ] Break reminders based on stress level
+- [x] ~~Weekly/monthly analytics reports~~ ✅ Implemented with AI
+- [x] ~~Custom productivity goals~~ ✅ AI generates personalized goals
+- [x] ~~Break reminders based on stress level~~ ✅ Smart reminders implemented
 - [ ] Export data to CSV
 - [ ] Dark mode for dashboard
 - [ ] Pomodoro timer integration
+- [ ] Historical data charts
+- [ ] Browser sync across devices
+- [ ] Mobile companion app
 
 ## 👨‍💻 Author
 

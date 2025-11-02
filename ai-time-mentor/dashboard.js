@@ -272,4 +272,131 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+
+  // AI Features
+  checkAIStatus();
+
+  // Generate Goals button
+  const goalsBtn = document.getElementById("generateGoals");
+  if (goalsBtn) {
+    goalsBtn.addEventListener("click", async () => {
+      const output = document.getElementById("ai-output");
+      output.innerHTML = '<div style="text-align: center; padding: 20px;">⏳ Generating personalized goals...</div>';
+      goalsBtn.disabled = true;
+
+      chrome.runtime.sendMessage({ type: "generateGoals" }, (response) => {
+        goalsBtn.disabled = false;
+        if (response && response.ok && response.goals) {
+          displayGoals(response.goals);
+        } else {
+          output.innerHTML = `<div class="error">❌ Error: ${response?.error || 'Failed to generate goals'}</div>`;
+        }
+      });
+    });
+  }
+
+  // Generate Report button
+  const reportBtn = document.getElementById("generateReport");
+  if (reportBtn) {
+    reportBtn.addEventListener("click", async () => {
+      const output = document.getElementById("ai-output");
+      output.innerHTML = '<div style="text-align: center; padding: 20px;">⏳ Generating weekly report...</div>';
+      reportBtn.disabled = true;
+
+      // Gather weekly data
+      chrome.storage.local.get(["usage", "emotionProfile"], (res) => {
+        const weeklyData = {
+          usage: res.usage || {},
+          profile: res.emotionProfile || {}
+        };
+
+        chrome.runtime.sendMessage(
+          { type: "generateWeeklyReport", data: weeklyData },
+          (response) => {
+            reportBtn.disabled = false;
+            if (response && response.ok && response.report) {
+              displayReport(response.report);
+            } else {
+              output.innerHTML = `<div class="error">❌ Error: ${response?.error || 'Failed to generate report'}</div>`;
+            }
+          }
+        );
+      });
+    });
+  }
+
+  // Open Settings button
+  const settingsBtn = document.getElementById("openSettings");
+  if (settingsBtn) {
+    settingsBtn.addEventListener("click", () => {
+      chrome.runtime.openOptionsPage();
+    });
+  }
 });
+
+// Check AI configuration status
+function checkAIStatus() {
+  chrome.storage.local.get(["aiConfig"], (res) => {
+    const statusDiv = document.getElementById("ai-status");
+    const config = res.aiConfig;
+
+    if (config && config.enabled && config.apiKey) {
+      statusDiv.innerHTML = `
+        <div style="padding: 10px; background: #d4edda; border-radius: 8px; color: #155724; font-size: 14px;">
+          ✅ AI Configured: ${config.provider} (${config.model})
+        </div>
+      `;
+    } else {
+      statusDiv.innerHTML = `
+        <div style="padding: 10px; background: #fff3cd; border-radius: 8px; color: #856404; font-size: 14px;">
+          ⚠️ AI not configured. Click "AI Settings" to set up.
+        </div>
+      `;
+    }
+  });
+}
+
+// Display generated goals
+function displayGoals(goals) {
+  const output = document.getElementById("ai-output");
+
+  if (!goals || goals.length === 0) {
+    output.innerHTML = '<div class="error">No goals generated</div>';
+    return;
+  }
+
+  let html = '<div class="goals-container" style="background: #f8f9fc; padding: 20px; border-radius: 12px;">';
+  html += '<h3 style="margin: 0 0 15px 0; color: #2c3e50;">🎯 Your Personalized Goals</h3>';
+
+  goals.forEach((goal, index) => {
+    html += `
+      <div style="background: white; padding: 15px; border-radius: 10px; margin-bottom: 12px; border-left: 4px solid #667eea;">
+        <div style="font-weight: 600; color: #2c3e50; margin-bottom: 8px;">${index + 1}. ${goal.goal}</div>
+        <div style="font-size: 13px; color: #7f8c8d;">
+          <div>📍 Current: <strong>${goal.current}</strong></div>
+          <div>🎯 Target: <strong>${goal.target}</strong></div>
+          <div>⏰ Timeframe: <strong>${goal.timeframe}</strong></div>
+        </div>
+      </div>
+    `;
+  });
+
+  html += '</div>';
+  output.innerHTML = html;
+}
+
+// Display weekly report
+function displayReport(report) {
+  const output = document.getElementById("ai-output");
+
+  const html = `
+    <div class="report-container" style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); padding: 20px; border-radius: 12px;">
+      <h3 style="margin: 0 0 15px 0; color: #2c3e50;">📊 Weekly Report</h3>
+      <div style="background: rgba(255,255,255,0.9); padding: 15px; border-radius: 10px; line-height: 1.8; color: #2c3e50; white-space: pre-wrap;">
+        ${report}
+      </div>
+    </div>
+  `;
+
+  output.innerHTML = html;
+}

@@ -315,5 +315,13 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  const settingsBtn = document.getElementById("settings");
+  if (settingsBtn) {
+    settingsBtn.addEventListener("click", () => {
+      console.log("[Popup] Opening AI settings...");
+      chrome.runtime.openOptionsPage();
+    });
+  }
+
   console.log("[Popup] All event listeners attached");
 });
