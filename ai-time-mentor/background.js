@@ -862,10 +862,23 @@ try {
   // installed/startup
   chrome.runtime.onInstalled.addListener(async () => {
     console.log("[TM] 🚀 Extension installed/updated");
-    const s = await storageGet(["usage"]);
+    const s = await storageGet(["usage", "aiConfig"]);
     if (!s.usage) {
       await storageSet({ usage: {} });
       recomputeEmotionProfileThrottled();
+    }
+
+    // Initialize AI config with provided API key if not already configured
+    if (!s.aiConfig || !s.aiConfig.apiKey) {
+      console.log("[TM] 🤖 Initializing AI config with Gemini API key");
+      const defaultConfig = {
+        provider: 'gemini',
+        model: 'gemini-1.5-flash',
+        apiKey: 'AIzaSyBkI8VRTlciFZOfz--jd9U0C-I59mmycBo',
+        enabled: true
+      };
+      await storageSet({ aiConfig: defaultConfig });
+      console.log("[TM] ✅ AI config initialized successfully");
     }
   });
 
