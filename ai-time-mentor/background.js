@@ -39,14 +39,18 @@ try {
           await chrome.storage.local.set({ aiConfig: defaultConfig });
           console.log('[TM] Default API key configured successfully');
 
-          // Show welcome notification
-          chrome.notifications.create({
-            type: 'basic',
-            iconUrl: 'icons/icon48.png',
-            title: 'AI Time Mentor დაინსტალირდა!',
-            message: 'AI features-ის გასააქტიურებლად გადადით Settings-ში. Default Gemini API key უკვე კონფიგურირებულია.',
-            priority: 2
-          });
+          // Show welcome notification (with error handling)
+          try {
+            await chrome.notifications.create('ai-time-mentor-welcome', {
+              type: 'basic',
+              iconUrl: chrome.runtime.getURL('icons/icon48.png'),
+              title: 'AI Time Mentor დაინსტალირდა!',
+              message: 'Gemini AI უკვე კონფიგურირებულია. დააწკაპუნეთ extension icon-ზე დასაწყებად.',
+              priority: 2
+            });
+          } catch (notifError) {
+            console.log('[TM] Notification skipped:', notifError.message);
+          }
         }
       } catch (error) {
         console.error('[TM] Error setting up default API key:', error);
