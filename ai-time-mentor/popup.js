@@ -24,8 +24,9 @@ function saveConsent(checked) {
 }
 
 function renderUsage() {
-  chrome.storage.local.get(["usage"], (result) => {
+  chrome.storage.local.get(["usage", "emotionProfile"], (result) => {
     const usage = result.usage || {};
+    const profile = result.emotionProfile || {};
     const container = document.getElementById("usage");
 
     if (!container) return;
@@ -43,6 +44,42 @@ function renderUsage() {
       typeof usage.distracting === "number" ||
       typeof usage.other === "number";
 
+    // Update stats card with new elements
+    const productiveMs = usage.productive || 0;
+    const distractingMs = usage.distracting || 0;
+    const otherMs = usage.other || 0;
+    const totalActive = productiveMs + distractingMs + otherMs;
+
+    // Update focus score
+    const focusScore = profile.focusPct || 0;
+    const focusScoreEl = document.getElementById("focusScore");
+    if (focusScoreEl) {
+      focusScoreEl.textContent = `${Math.round(focusScore)}%`;
+    }
+
+    // Update progress bar
+    const progressFill = document.getElementById("progressFill");
+    if (progressFill) {
+      progressFill.style.width = `${focusScore}%`;
+    }
+
+    // Update time stats
+    const productiveTimeEl = document.getElementById("productiveTime");
+    if (productiveTimeEl) {
+      productiveTimeEl.textContent = formatTime(productiveMs);
+    }
+
+    const distractingTimeEl = document.getElementById("distractingTime");
+    if (distractingTimeEl) {
+      distractingTimeEl.textContent = formatTime(distractingMs);
+    }
+
+    const tabSwitchesEl = document.getElementById("tabSwitches");
+    if (tabSwitchesEl) {
+      tabSwitchesEl.textContent = usage.tabSwitches || 0;
+    }
+
+    // Render usage list
     if (hasCategories) {
       const categories = [
         { name: "✅ Productive", value: usage.productive || 0 },
@@ -108,8 +145,6 @@ function renderUsage() {
       container.appendChild(div);
     }
 
-    const totalActive =
-      (usage.productive || 0) + (usage.distracting || 0) + (usage.other || 0);
     if (totalActive > 0) {
       const summaryDiv = document.createElement("div");
       summaryDiv.className = "usage-summary";
@@ -164,33 +199,15 @@ function renderEmotion() {
     renderEmotionFromProfile(res.emotionProfile);
 
     // manage AI badge
-    const existing = document.getElementById("aiBadge");
-    if (existing) existing.remove();
-    const header = document.querySelector(".container h1");
-    if (!header) return;
+    const badge = document.getElementById("aiBadge");
+    if (!badge) return;
+
     if (res.profileSource === "ai") {
-      const span = document.createElement("span");
-      span.id = "aiBadge";
-      span.textContent = "AI-assisted";
-      span.style.marginLeft = "10px";
-      span.style.fontSize = "12px";
-      span.style.background = "#5040c8ff";
-      span.style.color = "white";
-      span.style.padding = "4px 8px";
-      span.style.borderRadius = "6px";
-      header.appendChild(span);
+      badge.textContent = "AI-Powered";
     } else if (res.profileSource === "local") {
-      // optionally show 'Local' small badge or nothing
-      const span = document.createElement("span");
-      span.id = "aiBadge";
-      span.textContent = "Local calc";
-      span.style.marginLeft = "10px";
-      span.style.fontSize = "12px";
-      span.style.background = "#95a5a6";
-      span.style.color = "white";
-      span.style.padding = "4px 8px";
-      span.style.borderRadius = "6px";
-      header.appendChild(span);
+      badge.textContent = "Local calc";
+    } else {
+      badge.textContent = "AI-Powered";
     }
   });
 }
