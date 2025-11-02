@@ -18,6 +18,42 @@ try {
     console.warn('[TM] AI Service not available:', e);
   }
 
+  // --- Auto-setup API Key on first install ---
+  chrome.runtime.onInstalled.addListener(async (details) => {
+    if (details.reason === 'install') {
+      console.log('[TM] First install detected - setting up default AI configuration');
+
+      try {
+        // Check if API key is already configured
+        const result = await chrome.storage.local.get(['aiConfig']);
+
+        if (!result.aiConfig || !result.aiConfig.apiKey) {
+          // Set default Gemini API key
+          const defaultConfig = {
+            provider: 'gemini',
+            model: 'gemini-pro',
+            apiKey: 'AIzaSyBkI8VRTlciFZOfz--jd9U0C-I59mmycBo',
+            enabled: true
+          };
+
+          await chrome.storage.local.set({ aiConfig: defaultConfig });
+          console.log('[TM] Default API key configured successfully');
+
+          // Show welcome notification
+          chrome.notifications.create({
+            type: 'basic',
+            iconUrl: 'icons/icon48.png',
+            title: 'AI Time Mentor დაინსტალირდა!',
+            message: 'AI features-ის გასააქტიურებლად გადადით Settings-ში. Default Gemini API key უკვე კონფიგურირებულია.',
+            priority: 2
+          });
+        }
+      } catch (error) {
+        console.error('[TM] Error setting up default API key:', error);
+      }
+    }
+  });
+
   // --- Helpers: tiny promise wrappers for chrome.* callbacks ---
   function cbToPromise(fn, ...args) {
     return new Promise((resolve, reject) => {
