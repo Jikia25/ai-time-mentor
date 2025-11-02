@@ -1,402 +1,234 @@
-// dashboard.js - Fixed and improved version
+// dashboard.js - Updated for new visual design
+
+const aiService = new AIService();
 
 function formatTime(ms) {
+  if (!ms || ms < 0) return '0m';
   const hours = Math.floor(ms / 3600000);
   const minutes = Math.floor((ms % 3600000) / 60000);
-  const seconds = Math.floor((ms % 60000) / 1000);
-
   if (hours > 0) return `${hours}h ${minutes}m`;
-  if (minutes > 0) return `${minutes}m ${seconds}s`;
-  return `${seconds}s`;
-}
-
-function renderEmotionCard(profile) {
-  const container = document.getElementById("emotion-container");
-  container.innerHTML = "";
-
-  if (!profile) {
-    container.innerHTML = `
-      <section class="emotion-card">
-        <h2>📊 Emotion & Focus Insight</h2>
-        <p class="empty">No emotion profile yet. Browse for 5-10 minutes to generate insights.</p>
-      </section>
-    `;
-    return;
-  }
-
-  const stressColor =
-    profile.stress < 0.3
-      ? "#44bd32"
-      : profile.stress < 0.6
-      ? "#f39c12"
-      : "#e74c3c";
-  const focusColor =
-    profile.focusPct > 70
-      ? "#44bd32"
-      : profile.focusPct > 40
-      ? "#f39c12"
-      : "#e74c3c";
-
-  const html = `
-    <section class="emotion-card">
-      <h2>🧠 Today's Emotion & Focus Profile</h2>
-      
-      <div class="profile-summary">
-        <p><strong>Summary:</strong> ${profile.summary}</p>
-      </div>
-
-      <div class="metrics-grid">
-        <div class="metric-box">
-          <div class="metric-label">Focus Score</div>
-          <div class="metric-value" style="color: ${focusColor}">${
-    profile.focusPct
-  }%</div>
-          <div class="metric-bar">
-            <div class="metric-fill" style="width: ${
-              profile.focusPct
-            }%; background: ${focusColor}"></div>
-          </div>
-        </div>
-
-        <div class="metric-box">
-          <div class="metric-label">Stress Level</div>
-          <div class="metric-value" style="color: ${stressColor}">${Math.round(
-    profile.stress * 100
-  )}%</div>
-          <div class="metric-bar">
-            <div class="metric-fill" style="width: ${Math.round(
-              profile.stress * 100
-            )}%; background: ${stressColor}"></div>
-          </div>
-        </div>
-
-        <div class="metric-box">
-          <div class="metric-label">Mood</div>
-          <div class="metric-value mood-badge">${getMoodEmoji(profile.mood)} ${
-    profile.mood
-  }</div>
-        </div>
-
-        <div class="metric-box">
-          <div class="metric-label">Switch Rate</div>
-          <div class="metric-value">${profile.switchRate}/min</div>
-        </div>
-      </div>
-
-      <div class="insights-section">
-        <div class="insight-box">
-          <h3>💡 Insight</h3>
-          <p>${profile.insight}</p>
-        </div>
-
-        <div class="action-box">
-          <h3>🎯 Recommended Action</h3>
-          <p>${profile.action}</p>
-        </div>
-      </div>
-
-      <div class="detailed-stats">
-        <p><small>Typing Intensity: ${
-          profile.typingIntensity
-        } keys/min | Idle Ratio: ${Math.round(
-    profile.idleRatio * 100
-  )}%</small></p>
-      </div>
-    </section>
-  `;
-
-  container.innerHTML = html;
+  return `${minutes}m`;
 }
 
 function getMoodEmoji(mood) {
   const emojis = {
-    focused: "🎯",
-    calm: "😌",
-    frustrated: "😤",
-    tired: "😴",
-    restless: "😰",
-    mixed: "🤔",
+    focused: '🎯',
+    calm: '😌',
+    frustrated: '😤',
+    tired: '😴',
+    restless: '😰',
+    mixed: '🤔'
   };
-  return emojis[mood] || "🤔";
+  return emojis[mood] || '🤔';
 }
 
-function renderUsageStats(usage) {
-  const container = document.getElementById("usage-container");
-  container.innerHTML = "<h2>⏱️ Time Breakdown</h2>";
+// Load and display dashboard data
+async function loadDashboard() {
+  try {
+    const result = await chrome.storage.local.get(['usage', 'emotionProfile', 'aiConfig']);
+    const usage = result.usage || {};
+    const profile = result.emotionProfile;
+    const aiConfig = result.aiConfig || {};
 
-  if (!usage || Object.keys(usage).length === 0) {
-    container.innerHTML +=
-      '<p class="empty">No usage data yet. Start browsing to track activity.</p>';
-    return;
-  }
+    // Update subtitle
+    const now = new Date();
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'];
+    document.getElementById('dashboardSubtitle').textContent =
+      `Your personalized productivity insights for ${monthNames[now.getMonth()]} ${now.getFullYear()}`;
 
-  const metaKeys = ["tabSwitches", "typingKeystrokes", "idleMs", "samples"];
-  const hasCategories =
-    typeof usage.productive === "number" ||
-    typeof usage.distracting === "number" ||
-    typeof usage.other === "number";
+    // Calculate metrics
+    const productiveMs = usage.productive || 0;
+    const distractingMs = usage.distracting || 0;
+    const otherMs = usage.other || 0;
+    const totalMs = productiveMs + distractingMs + otherMs;
 
-  let entries = [];
-  let total = 1;
+    let focusScore = 0;
+    if (totalMs > 0) {
+      focusScore = Math.round((productiveMs / totalMs) * 100);
+    }
 
-  if (hasCategories) {
-    // Category-based tracking
-    if (usage.productive > 0)
-      entries.push(["✅ Productive Time", usage.productive, "#44bd32"]);
-    if (usage.distracting > 0)
-      entries.push(["⚠️ Distracting Time", usage.distracting, "#e74c3c"]);
-    if (usage.other > 0)
-      entries.push(["📄 Other Time", usage.other, "#95a5a6"]);
-    total =
-      (usage.productive || 0) + (usage.distracting || 0) + (usage.other || 0) ||
-      1;
-  } else {
-    // Domain-based tracking
-    const domainEntries = Object.entries(usage).filter(([k, v]) => {
-      return (
-        typeof v === "number" &&
-        v > 0 &&
-        !metaKeys.includes(k) &&
-        !["productive", "distracting", "other"].includes(k)
-      );
-    });
+    // Update metrics
+    document.getElementById('focusScoreMetric').textContent = totalMs > 0 ? `${focusScore}%` : '--';
+    document.getElementById('productiveTimeMetric').textContent = formatTime(productiveMs);
 
-    entries = domainEntries.map(([k, v]) => [k, v, "#3498db"]);
-    total = entries.reduce((sum, [_, time]) => sum + time, 0) || 1;
-  }
+    const stressLevel = profile && profile.stress ? Math.round(profile.stress * 100) : 0;
+    let stressLabel = 'Low';
+    if (stressLevel > 70) stressLabel = 'High';
+    else if (stressLevel > 40) stressLabel = 'Medium';
+    document.getElementById('stressLevelMetric').textContent = stressLabel;
+    document.getElementById('improvementMetric').textContent = '--';
 
-  if (entries.length === 0) {
-    container.innerHTML += '<p class="empty">No usage data available yet.</p>';
-    return;
-  }
-
-  // Sort by time descending
-  entries.sort((a, b) => b[1] - a[1]);
-
-  // Show top 10
-  entries.slice(0, 10).forEach(([name, time, color]) => {
-    const percent = ((time / total) * 100).toFixed(1);
-    const div = document.createElement("div");
-    div.className = "stat-card";
-    div.innerHTML = `
-      <div class="stat-header">
-        <strong>${name}</strong>
-        <span>${formatTime(time)} (${percent}%)</span>
-      </div>
-      <div class="bar">
-        <div class="fill" style="width:${percent}%; background: ${color}"></div>
-      </div>
-    `;
-    container.appendChild(div);
-  });
-
-  // Activity summary
-  const summaryDiv = document.createElement("div");
-  summaryDiv.className = "activity-summary";
-  summaryDiv.innerHTML = `
-    <h3>📈 Activity Summary</h3>
-    <div class="summary-grid">
-      <div class="summary-item">
-        <div class="summary-label">Total Active Time</div>
-        <div class="summary-value">${formatTime(total)}</div>
-      </div>
-      <div class="summary-item">
-        <div class="summary-label">Tab Switches</div>
-        <div class="summary-value">${usage.tabSwitches || 0}</div>
-      </div>
-      <div class="summary-item">
-        <div class="summary-label">Keystrokes</div>
-        <div class="summary-value">${usage.typingKeystrokes || 0}</div>
-      </div>
-      <div class="summary-item">
-        <div class="summary-label">Idle Time</div>
-        <div class="summary-value">${formatTime(usage.idleMs || 0)}</div>
-      </div>
-    </div>
-  `;
-  container.appendChild(summaryDiv);
-}
-
-function refreshDashboard() {
-  console.log("[Dashboard] Refreshing data...");
-
-  chrome.storage.local.get(["emotionProfile", "usage"], (res) => {
-    console.log("[Dashboard] Data received:", res);
-
-    renderEmotionCard(res.emotionProfile);
-    renderUsageStats(res.usage || {});
-  });
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  console.log("[Dashboard] Initializing...");
-
-  refreshDashboard();
-
-  // Refresh button
-  const refreshBtn = document.getElementById("refresh");
-  if (refreshBtn) {
-    refreshBtn.addEventListener("click", () => {
-      console.log("[Dashboard] Manual refresh triggered");
-      refreshBtn.disabled = true;
-      refreshBtn.textContent = "🔄 Refreshing...";
-
-      // Request recompute
-      chrome.runtime.sendMessage({ type: "recomputeProfile" }, (resp) => {
-        console.log("[Dashboard] Recompute response:", resp);
-        setTimeout(() => {
-          refreshDashboard();
-          refreshBtn.disabled = false;
-          refreshBtn.textContent = "🔄 Refresh Data";
-        }, 500);
-      });
-    });
-  }
-
-  // Back button
-  const backBtn = document.getElementById("back");
-  if (backBtn) {
-    backBtn.addEventListener("click", () => {
-      window.close();
-    });
-  }
-
-  // Clear button
-  const clearBtn = document.getElementById("clearData");
-  if (clearBtn) {
-    clearBtn.addEventListener("click", () => {
-      if (confirm("Are you sure you want to clear all tracking data?")) {
-        chrome.runtime.sendMessage({ type: "resetUsage" }, () => {
-          refreshDashboard();
-        });
-      }
-    });
-  }
-
-  // AI Features
-  checkAIStatus();
-
-  // Generate Goals button
-  const goalsBtn = document.getElementById("generateGoals");
-  if (goalsBtn) {
-    goalsBtn.addEventListener("click", async () => {
-      const output = document.getElementById("ai-output");
-      output.innerHTML = '<div style="text-align: center; padding: 20px;">⏳ Generating personalized goals...</div>';
-      goalsBtn.disabled = true;
-
-      chrome.runtime.sendMessage({ type: "generateGoals" }, (response) => {
-        goalsBtn.disabled = false;
-        if (response && response.ok && response.goals) {
-          displayGoals(response.goals);
-        } else {
-          output.innerHTML = `<div class="error">❌ Error: ${response?.error || 'Failed to generate goals'}</div>`;
-        }
-      });
-    });
-  }
-
-  // Generate Report button
-  const reportBtn = document.getElementById("generateReport");
-  if (reportBtn) {
-    reportBtn.addEventListener("click", async () => {
-      const output = document.getElementById("ai-output");
-      output.innerHTML = '<div style="text-align: center; padding: 20px;">⏳ Generating weekly report...</div>';
-      reportBtn.disabled = true;
-
-      // Gather weekly data
-      chrome.storage.local.get(["usage", "emotionProfile"], (res) => {
-        const weeklyData = {
-          usage: res.usage || {},
-          profile: res.emotionProfile || {}
-        };
-
-        chrome.runtime.sendMessage(
-          { type: "generateWeeklyReport", data: weeklyData },
-          (response) => {
-            reportBtn.disabled = false;
-            if (response && response.ok && response.report) {
-              displayReport(response.report);
-            } else {
-              output.innerHTML = `<div class="error">❌ Error: ${response?.error || 'Failed to generate report'}</div>`;
-            }
-          }
-        );
-      });
-    });
-  }
-
-  // Open Settings button
-  const settingsBtn = document.getElementById("openSettings");
-  if (settingsBtn) {
-    settingsBtn.addEventListener("click", () => {
-      chrome.runtime.openOptionsPage();
-    });
-  }
-});
-
-// Check AI configuration status
-function checkAIStatus() {
-  chrome.storage.local.get(["aiConfig"], (res) => {
-    const statusDiv = document.getElementById("ai-status");
-    const config = res.aiConfig;
-
-    if (config && config.enabled && config.apiKey) {
-      statusDiv.innerHTML = `
-        <div style="padding: 10px; background: #d4edda; border-radius: 8px; color: #155724; font-size: 14px;">
-          ✅ AI Configured: ${config.provider} (${config.model})
-        </div>
+    // Update AI analysis text
+    if (profile && profile.insight) {
+      const analysisText = `
+        <strong>კვირის ანალიზი:</strong> ${profile.insight} ${profile.action ? `<br><br>${profile.action}` : ''}
       `;
+      document.getElementById('weeklyAnalysis').innerHTML = analysisText;
     } else {
-      statusDiv.innerHTML = `
-        <div style="padding: 10px; background: #fff3cd; border-radius: 8px; color: #856404; font-size: 14px;">
-          ⚠️ AI not configured. Click "AI Settings" to set up.
-        </div>
+      document.getElementById('weeklyAnalysis').innerHTML = `
+        <div class="loading">დაიწყეთ browsing რომ AI მოგცეთ personalized insights!</div>
       `;
     }
-  });
-}
 
-// Display generated goals
-function displayGoals(goals) {
-  const output = document.getElementById("ai-output");
-
-  if (!goals || goals.length === 0) {
-    output.innerHTML = '<div class="error">No goals generated</div>';
-    return;
+    // Check if AI is configured
+    if (aiConfig.enabled && aiConfig.apiKey) {
+      console.log('[Dashboard] AI is configured');
+    } else {
+      console.log('[Dashboard] AI not configured');
+    }
+  } catch (error) {
+    console.error('[Dashboard] Error loading data:', error);
   }
+}
 
-  let html = '<div class="goals-container" style="background: #f8f9fc; padding: 20px; border-radius: 12px;">';
-  html += '<h3 style="margin: 0 0 15px 0; color: #2c3e50;">🎯 Your Personalized Goals</h3>';
+// Generate Goals
+async function generateGoals() {
+  const btn = document.getElementById('generateGoals');
+  const goalsList = document.getElementById('goalsList');
 
-  goals.forEach((goal, index) => {
-    html += `
-      <div style="background: white; padding: 15px; border-radius: 10px; margin-bottom: 12px; border-left: 4px solid #667eea;">
-        <div style="font-weight: 600; color: #2c3e50; margin-bottom: 8px;">${index + 1}. ${goal.goal}</div>
-        <div style="font-size: 13px; color: #7f8c8d;">
-          <div>📍 Current: <strong>${goal.current}</strong></div>
-          <div>🎯 Target: <strong>${goal.target}</strong></div>
-          <div>⏰ Timeframe: <strong>${goal.timeframe}</strong></div>
-        </div>
-      </div>
-    `;
+  try {
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Generating...';
+    goalsList.innerHTML = '<div class="loading">AI is analyzing your patterns...</div>';
+
+    const result = await chrome.storage.local.get(['usage']);
+    const usage = result.usage || {};
+
+    // Calculate focus and stress for AI
+    const productiveMs = usage.productive || 0;
+    const distractingMs = usage.distracting || 0;
+    const totalMs = productiveMs + distractingMs;
+    const focusPct = totalMs > 0 ? Math.round((productiveMs / totalMs) * 100) : 0;
+
+    const data = {
+      focusPct: focusPct,
+      productive: productiveMs,
+      distracting: distractingMs,
+      stress: 0.3
+    };
+
+    const goals = await aiService.generateGoals(data);
+
+    if (goals && goals.length > 0) {
+      goalsList.innerHTML = '';
+      goals.forEach((goal, index) => {
+        const statusIcon = index === 0 ? '✓' : '⏳';
+        const goalItem = document.createElement('div');
+        goalItem.className = 'goal-item';
+        goalItem.innerHTML = `
+          <div class="goal-checkbox">${statusIcon}</div>
+          <div class="goal-content">
+            <div class="goal-text">${goal.goal}</div>
+            <div class="goal-progress">Current: ${goal.current} • Target: ${goal.target} • ${goal.timeframe}</div>
+          </div>
+        `;
+        goalsList.appendChild(goalItem);
+      });
+    } else {
+      goalsList.innerHTML = '<div class="loading">Could not generate goals. Please configure AI settings.</div>';
+    }
+  } catch (error) {
+    console.error('[Dashboard] Error generating goals:', error);
+    goalsList.innerHTML = `<div class="loading">Error: ${error.message}<br>Please check AI settings.</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🎯 Generate Goals';
+  }
+}
+
+// Generate Weekly Report
+async function generateWeeklyReport() {
+  const btn = document.getElementById('generateReport');
+  const analysisEl = document.getElementById('weeklyAnalysis');
+
+  try {
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Generating...';
+    analysisEl.innerHTML = '<div class="loading">AI is creating your weekly report...</div>';
+
+    const result = await chrome.storage.local.get(['usage']);
+    const usage = result.usage || {};
+
+    const weeklyData = {
+      totalTime: (usage.productive || 0) + (usage.distracting || 0) + (usage.other || 0),
+      productiveTime: usage.productive || 0,
+      distractingTime: usage.distracting || 0,
+      tabSwitches: usage.tabSwitches || 0,
+      days: []
+    };
+
+    const report = await aiService.generateWeeklyReport(weeklyData);
+
+    if (report) {
+      analysisEl.innerHTML = `<strong>AI-Generated Report:</strong><br><br>${report.replace(/\n/g, '<br>')}`;
+    } else {
+      analysisEl.innerHTML = '<div class="loading">Could not generate report. Please configure AI settings.</div>';
+    }
+  } catch (error) {
+    console.error('[Dashboard] Error generating report:', error);
+    analysisEl.innerHTML = `<div class="loading">Error: ${error.message}<br>Please check AI settings.</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '✨ Generate Weekly Report';
+  }
+}
+
+// Export report
+function exportReport() {
+  chrome.storage.local.get(['usage', 'emotionProfile'], (result) => {
+    const data = {
+      usage: result.usage || {},
+      profile: result.emotionProfile || {},
+      exportDate: new Date().toISOString()
+    };
+
+    const dataStr = JSON.stringify(data, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `ai-time-mentor-report-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+
+    URL.revokeObjectURL(url);
+  });
+}
+
+// Refresh dashboard
+function refreshDashboard() {
+  const btn = document.getElementById('refresh');
+  btn.disabled = true;
+  const prevText = btn.innerHTML;
+  btn.innerHTML = '⏳ Refreshing...';
+
+  // Request profile recompute
+  chrome.runtime.sendMessage({ type: 'recomputeProfile' }, () => {
+    setTimeout(() => {
+      loadDashboard();
+      btn.disabled = false;
+      btn.innerHTML = prevText;
+    }, 1000);
+  });
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('[Dashboard] Initializing...');
+
+  // Load initial data
+  loadDashboard();
+
+  // Event listeners
+  document.getElementById('generateGoals').addEventListener('click', generateGoals);
+  document.getElementById('generateReport').addEventListener('click', generateWeeklyReport);
+  document.getElementById('exportReport').addEventListener('click', exportReport);
+  document.getElementById('refresh').addEventListener('click', refreshDashboard);
+
+  document.getElementById('openSettings').addEventListener('click', () => {
+    chrome.runtime.openOptionsPage();
   });
 
-  html += '</div>';
-  output.innerHTML = html;
-}
-
-// Display weekly report
-function displayReport(report) {
-  const output = document.getElementById("ai-output");
-
-  const html = `
-    <div class="report-container" style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); padding: 20px; border-radius: 12px;">
-      <h3 style="margin: 0 0 15px 0; color: #2c3e50;">📊 Weekly Report</h3>
-      <div style="background: rgba(255,255,255,0.9); padding: 15px; border-radius: 10px; line-height: 1.8; color: #2c3e50; white-space: pre-wrap;">
-        ${report}
-      </div>
-    </div>
-  `;
-
-  output.innerHTML = html;
-}
+  console.log('[Dashboard] Initialization complete');
+});
