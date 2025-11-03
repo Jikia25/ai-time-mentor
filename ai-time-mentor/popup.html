@@ -1,46 +1,517 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AI Time Mentor</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Time Mentor - Visual Mockup</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      width: 360px;
+      min-height: 600px;
+    }
+
+    .mockup-container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      padding: 20px;
+      max-width: 360px;
+      width: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .mockup-container::before {
+      content: '';
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      right: -2px;
+      bottom: -2px;
+      background: linear-gradient(45deg, #f093fb 0%, #f5576c 25%, #4facfe 50%, #00f2fe 100%);
+      border-radius: 20px;
+      opacity: 0.3;
+      z-index: -1;
+      animation: gradient 3s ease infinite;
+    }
+
+    @keyframes gradient {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 0.5; }
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #f0f0f0;
+    }
+
+    .title-section {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    h1 {
+      font-size: 20px;
+      color: #2c3e50;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ai-badge {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+
+    .subtitle {
+      color: #7f8c8d;
+      font-size: 13px;
+      margin-top: 5px;
+    }
+
+    .stats-card {
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 15px;
+    }
+
+    .stats-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .stats-title {
+      font-weight: 600;
+      color: #2c3e50;
+      font-size: 14px;
+    }
+
+    .focus-score {
+      font-size: 24px;
+      font-weight: bold;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .progress-bar {
+      background: rgba(255,255,255,0.5);
+      border-radius: 10px;
+      height: 8px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+      border-radius: 10px;
+      width: 73%;
+      animation: progressGrow 1s ease-out;
+    }
+
+    @keyframes progressGrow {
+      from { width: 0; }
+    }
+
+    .stat-items {
+      display: flex;
+      justify-content: space-around;
+      margin-top: 12px;
+    }
+
+    .stat-item {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 18px;
+      font-weight: bold;
+      color: #2c3e50;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: #7f8c8d;
+      margin-top: 2px;
+    }
+
+    .ai-insight-card {
+      background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 15px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .ai-insight-card::before {
+      content: '✨';
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 20px;
+      animation: sparkle 2s infinite;
+    }
+
+    @keyframes sparkle {
+      0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
+      50% { opacity: 0.7; transform: scale(1.1) rotate(180deg); }
+    }
+
+    .insight-title {
+      font-weight: 600;
+      color: #2c3e50;
+      font-size: 14px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .insight-text {
+      color: #5a6c7d;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 10px;
+    }
+
+    .action-suggestion {
+      background: rgba(255,255,255,0.8);
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 12px;
+      color: #2c3e50;
+      border-left: 3px solid #ff6b6b;
+    }
+
+    .mood-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: white;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 15px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+
+    .mood-emoji {
+      font-size: 32px;
+    }
+
+    .mood-text {
+      flex: 1;
+      margin-left: 12px;
+    }
+
+    .mood-label {
+      font-size: 12px;
+      color: #7f8c8d;
+    }
+
+    .mood-value {
+      font-size: 16px;
+      font-weight: 600;
+      color: #2c3e50;
+      margin-top: 2px;
+    }
+
+    .stress-meter {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: conic-gradient(
+        from 0deg,
+        #4ade80 0deg,
+        #4ade80 108deg,
+        #fbbf24 108deg,
+        #fbbf24 216deg,
+        #ef4444 216deg,
+        #ef4444 324deg,
+        #e5e7eb 324deg
+      );
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .stress-inner {
+      width: 50px;
+      height: 50px;
+      background: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    .reminder-card {
+      background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .reminder-icon {
+      font-size: 24px;
+    }
+
+    .reminder-content {
+      flex: 1;
+    }
+
+    .reminder-text {
+      font-size: 12px;
+      color: #2c3e50;
+      margin-bottom: 4px;
+    }
+
+    .reminder-time {
+      font-size: 11px;
+      color: #5a6c7d;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-secondary {
+      background: white;
+      color: #667eea;
+      border: 2px solid #e0e0e0;
+    }
+
+    .btn-ai {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      color: white;
+    }
+
+    .sites-list {
+      background: white;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 15px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+
+    .sites-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #2c3e50;
+      margin-bottom: 10px;
+    }
+
+    .site-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .site-item:last-child {
+      border-bottom: none;
+    }
+
+    .site-name {
+      font-size: 12px;
+      color: #5a6c7d;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .site-icon {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      background: #f0f0f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+    }
+
+    .site-time {
+      font-size: 12px;
+      font-weight: 600;
+      color: #2c3e50;
+    }
+
+    .productive { background: #d4f4dd; color: #22c55e; }
+    .distracting { background: #fee2e2; color: #ef4444; }
+    .neutral { background: #f0f0f0; color: #7f8c8d; }
+  </style>
 </head>
 <body>
-  <div class="container">
-    <h1>🧠 AI Time Mentor</h1>
-    <p>Track your focus & productivity.</p>
-
-    <div id="usage"></div>
-
-    <div id="emotion">
-      <h3>Daily Insight</h3>
-      <div id="emotion-summary" class="mini">No insight yet — browse a bit to collect data.</div>
-      <div id="emotion-insight" class="mini"></div>
-      <div id="emotion-action" class="mini"></div>
+  <div class="mockup-container">
+    <!-- Header -->
+    <div class="header">
+      <div>
+        <div class="title-section">
+          <h1>🧠 AI Time Mentor</h1>
+          <span class="ai-badge">AI-Powered</span>
+        </div>
+        <div class="subtitle">Your intelligent productivity coach</div>
+      </div>
     </div>
 
-    <h4>Reminders</h4>
-    <div id="remindersList" class="mini">No scheduled reminders</div>
-
-    <!-- ===== AI Consent toggle (added) ===== -->
-    <div class="settings-section" style="margin-top:12px; padding-top:10px; border-top:1px solid #eee;">
-      <label style="display:flex; align-items:center; gap:8px;">
-        <input id="consentSamples" type="checkbox" />
-        <span style="font-size:13px; color:#666">
-          Allow storing text samples for improved insights
-        </span>
-      </label>
-      <p style="font-size:12px; color:#888; margin:8px 0 0;">
-        If enabled, short text samples (only with your explicit action) will be stored locally to improve analysis. No samples are sent anywhere without consent.
-      </p>
+    <!-- Focus Stats Card -->
+    <div class="stats-card">
+      <div class="stats-header">
+        <span class="stats-title">Today's Focus</span>
+        <span class="focus-score" id="focusScore">--</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div class="stat-items">
+        <div class="stat-item">
+          <div class="stat-value" id="productiveTime">--</div>
+          <div class="stat-label">Productive</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="distractingTime">--</div>
+          <div class="stat-label">Distracting</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="tabSwitches">--</div>
+          <div class="stat-label">Tab Switches</div>
+        </div>
+      </div>
     </div>
 
-    <div class="buttons" style="margin-top:12px;">
-      <button id="clear">Clear Data</button>
-      <button id="refreshInsight">Refresh Insight</button>
-      <button id="dashboard">View Dashboard</button>
-      <button id="settings" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">⚙️ AI Settings</button>
+    <!-- AI Insight Card -->
+    <div class="ai-insight-card">
+      <div class="insight-title">
+        🤖 AI Insight
+      </div>
+      <div class="insight-text" id="insightText">
+        Loading your personalized insights...
+      </div>
+      <div class="action-suggestion" id="actionSuggestion">
+        <strong>💡 რჩევა:</strong> Keep browsing to generate personalized recommendations!
+      </div>
+    </div>
+
+    <!-- Mood & Stress Indicator -->
+    <div class="mood-indicator">
+      <div class="mood-emoji" id="moodEmoji">🎯</div>
+      <div class="mood-text">
+        <div class="mood-label">Current Mood</div>
+        <div class="mood-value" id="moodValue">Focused</div>
+      </div>
+      <div class="stress-meter">
+        <div class="stress-inner" id="stressLevel">30%</div>
+      </div>
+    </div>
+
+    <!-- Smart Reminder -->
+    <div class="reminder-card" id="reminderCard">
+      <div class="reminder-icon">⏰</div>
+      <div class="reminder-content">
+        <div class="reminder-text" id="reminderText">დროა 5-წუთიანი შესვენებისთვის! წყალი დალიე და გაიხარე 🌿</div>
+        <div class="reminder-time" id="reminderTime">Next break in 23 minutes</div>
+      </div>
+    </div>
+
+    <!-- Top Sites -->
+    <div class="sites-list">
+      <div class="sites-title">📊 Top Activity</div>
+      <div id="topSitesList">
+        <!-- Will be populated by JavaScript -->
+        <div class="site-item">
+          <div class="site-name">
+            <span class="site-icon neutral">•</span>
+            Loading...
+          </div>
+          <span class="site-time">--</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="button-group">
+      <button class="btn btn-primary" id="dashboard">
+        📊 Dashboard
+      </button>
+      <button class="btn btn-ai" id="refreshInsight">
+        ✨ AI Report
+      </button>
+    </div>
+
+    <div class="button-group">
+      <button class="btn btn-secondary" id="settings">
+        ⚙️ Settings
+      </button>
+      <button class="btn btn-secondary" id="clear">
+        🎯 Goals
+      </button>
     </div>
   </div>
 

@@ -1,3 +1,8 @@
+/**
+ * Popup.js - Main popup interface for AI Time Mentor
+ * Integrates with the new mockup design
+ */
+
 function formatTime(ms) {
   const hours = Math.floor(ms / 3600000);
   const minutes = Math.floor((ms % 3600000) / 60000);
@@ -8,142 +13,12 @@ function formatTime(ms) {
   return `${seconds}s`;
 }
 
-function loadConsentToggle() {
-  chrome.storage.local.get(["consentText"], (res) => {
-    const checked = !!res.consentText;
-    const cb = document.getElementById("consentSamples");
-    if (cb) cb.checked = checked;
-  });
-}
-
-function saveConsent(checked) {
-  const val = checked ? new Date().toISOString() : null;
-  chrome.storage.local.set({ consentText: val }, () => {
-    console.log("[Popup] consentText set ->", val);
-  });
-}
-
-function renderUsage() {
-  chrome.storage.local.get(["usage"], (result) => {
-    const usage = result.usage || {};
-    const container = document.getElementById("usage");
-
-    if (!container) return;
-    container.innerHTML = "";
-
-    const metaKeys = [
-      "tabSwitches",
-      "typingKeystrokes",
-      "idleMs",
-      "samples",
-      "mediaEvents",
-    ];
-    const hasCategories =
-      typeof usage.productive === "number" ||
-      typeof usage.distracting === "number" ||
-      typeof usage.other === "number";
-
-    if (hasCategories) {
-      const categories = [
-        { name: "✅ Productive", value: usage.productive || 0 },
-        { name: "⚠️ Distracting", value: usage.distracting || 0 },
-        { name: "📄 Other", value: usage.other || 0 },
-      ].filter((c) => c.value > 0);
-
-      if (categories.length === 0) {
-        container.innerHTML =
-          '<div class="empty">No tracked activity yet. Start browsing!</div>';
-        return;
-      }
-
-      categories.sort((a, b) => b.value - a.value);
-
-      categories.forEach((cat) => {
-        const div = document.createElement("div");
-        div.className = "site";
-        div.textContent = `${cat.name} — ${formatTime(cat.value)}`;
-        container.appendChild(div);
-      });
-    } else {
-      const entries = Object.entries(usage).filter(([k, v]) => {
-        return (
-          typeof v === "number" &&
-          v > 0 &&
-          !metaKeys.includes(k) &&
-          !["productive", "distracting", "other"].includes(k)
-        );
-      });
-
-      if (entries.length === 0) {
-        container.innerHTML =
-          '<div class="empty">No tracked domains yet. Start browsing!</div>';
-        return;
-      }
-
-      const sorted = entries.sort((a, b) => b[1] - a[1]);
-      sorted.slice(0, 5).forEach(([domain, time]) => {
-        const div = document.createElement("div");
-        div.className = "site";
-        div.textContent = `${domain} — ${formatTime(time)}`;
-        container.appendChild(div);
-      });
-
-      if (sorted.length > 5) {
-        const moreDiv = document.createElement("div");
-        moreDiv.className = "site more-hint";
-        moreDiv.textContent = `+ ${sorted.length - 5} more (view dashboard)`;
-        moreDiv.style.color = "#718093";
-        moreDiv.style.fontStyle = "italic";
-        container.appendChild(moreDiv);
-      }
-    }
-
-    // Show media stats if present
-    if (usage.mediaPlays) {
-      const div = document.createElement("div");
-      div.className = "site";
-      div.textContent = `🎬 Media plays: ${usage.mediaPlays} — ${formatTime(
-        usage.mediaPlayMs || 0
-      )}`;
-      container.appendChild(div);
-    }
-
-    const totalActive =
-      (usage.productive || 0) + (usage.distracting || 0) + (usage.other || 0);
-    if (totalActive > 0) {
-      const summaryDiv = document.createElement("div");
-      summaryDiv.className = "usage-summary";
-      summaryDiv.innerHTML = `
-        <div class="summary-line">Total: ${formatTime(totalActive)}</div>
-        <div class="summary-line">Switches: ${usage.tabSwitches || 0} | Keys: ${
-        usage.typingKeystrokes || 0
-      }</div>
-      `;
-      container.appendChild(summaryDiv);
-    }
-  });
-}
-
-function renderEmotionFromProfile(p) {
-  const sumEl = document.getElementById("emotion-summary");
-  const insightEl = document.getElementById("emotion-insight");
-  const actionEl = document.getElementById("emotion-action");
-
-  if (!sumEl || !insightEl || !actionEl) return;
-
-  if (!p) {
-    sumEl.textContent = "No insight yet — browse a bit to collect data.";
-    insightEl.textContent = "";
-    actionEl.textContent = "";
-    return;
-  }
-
-  const moodEmoji = getMoodEmoji(p.mood);
-  sumEl.textContent = `${moodEmoji} ${p.summary || "Processing..."}`;
-  sumEl.style.fontWeight = "500";
-
-  insightEl.textContent = `💡 ${p.insight || ""}`;
-  actionEl.textContent = `🎯 ${p.action || ""}`;
+function formatTimeShort(ms) {
+  const hours = Math.floor(ms / 3600000);
+  const minutes = Math.floor((ms % 3600000) / 60000);
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m`;
+  return '< 1m';
 }
 
 function getMoodEmoji(mood) {
@@ -154,174 +29,311 @@ function getMoodEmoji(mood) {
     tired: "😴",
     restless: "😰",
     mixed: "🤔",
+    productive: "💪",
+    stressed: "😰"
   };
   return emojis[mood] || "🤔";
 }
 
-// Read emotionProfile and profileSource and show badge if AI-assisted
-function renderEmotion() {
-  chrome.storage.local.get(["emotionProfile", "profileSource"], (res) => {
-    renderEmotionFromProfile(res.emotionProfile);
-
-    // manage AI badge
-    const existing = document.getElementById("aiBadge");
-    if (existing) existing.remove();
-    const header = document.querySelector(".container h1");
-    if (!header) return;
-    if (res.profileSource === "ai") {
-      const span = document.createElement("span");
-      span.id = "aiBadge";
-      span.textContent = "AI-assisted";
-      span.style.marginLeft = "10px";
-      span.style.fontSize = "12px";
-      span.style.background = "#5040c8ff";
-      span.style.color = "white";
-      span.style.padding = "4px 8px";
-      span.style.borderRadius = "6px";
-      header.appendChild(span);
-    } else if (res.profileSource === "local") {
-      // optionally show 'Local' small badge or nothing
-      const span = document.createElement("span");
-      span.id = "aiBadge";
-      span.textContent = "Local calc";
-      span.style.marginLeft = "10px";
-      span.style.fontSize = "12px";
-      span.style.background = "#95a5a6";
-      span.style.color = "white";
-      span.style.padding = "4px 8px";
-      span.style.borderRadius = "6px";
-      header.appendChild(span);
-    }
-  });
+function getMoodLabel(mood) {
+  const labels = {
+    focused: "Focused",
+    calm: "Calm",
+    frustrated: "Frustrated",
+    tired: "Tired",
+    restless: "Restless",
+    mixed: "Mixed",
+    productive: "Productive",
+    stressed: "Stressed"
+  };
+  return labels[mood] || "Neutral";
 }
 
-// --- Reminders list UI and actions ---
-function renderRemindersList() {
-  chrome.storage.local.get(["reminders"], (res) => {
-    const list = res.reminders || [];
-    const container = document.getElementById("remindersList");
-    if (!container) return;
-    container.innerHTML = "";
-    if (list.length === 0) {
-      container.textContent = "No scheduled reminders";
-      return;
-    }
-    list
-      .sort((a, b) => a.when - b.when)
-      .forEach((r) => {
-        const el = document.createElement("div");
-        el.className = "site";
-        const when = new Date(r.when).toLocaleTimeString();
-        el.innerHTML = `<strong>${r.title}</strong> — ${when}<div style="font-size:12px; color:#666">${r.message}</div>`;
-        const btnS = document.createElement("button");
-        btnS.textContent = "Snooze 5m";
-        btnS.style.marginRight = "6px";
-        const btnD = document.createElement("button");
-        btnD.textContent = "Dismiss";
-        btnS.addEventListener("click", () => {
-          chrome.runtime.sendMessage(
-            { type: "snoozeReminder", id: r.id },
-            () => {
-              renderRemindersList();
-            }
-          );
-        });
-        btnD.addEventListener("click", () => {
-          chrome.runtime.sendMessage(
-            { type: "dismissReminder", id: r.id },
-            () => {
-              renderRemindersList();
-            }
-          );
-        });
-        el.appendChild(document.createElement("br"));
-        el.appendChild(btnS);
-        el.appendChild(btnD);
-        container.appendChild(el);
-      });
-  });
-}
+/**
+ * Calculate focus score from usage data
+ */
+function calculateFocusScore(usage) {
+  const totalTime = (usage.productive || 0) + (usage.distracting || 0) + (usage.other || 0);
+  if (totalTime === 0) return 0;
 
-// Initialize when DOM is ready
-document.addEventListener("DOMContentLoaded", () => {
-  console.log("[Popup] Initializing...");
+  const productiveRatio = (usage.productive || 0) / totalTime;
+  const distractingRatio = (usage.distracting || 0) / totalTime;
 
-  loadConsentToggle();
+  // Base score from productive ratio
+  let score = productiveRatio * 100;
 
-  renderUsage();
-  renderEmotion();
-  renderRemindersList();
-
-  const consentCb = document.getElementById("consentSamples");
-  if (consentCb) {
-    consentCb.addEventListener("change", (e) => saveConsent(e.target.checked));
+  // Penalty for too many tab switches (more than 1 per minute of active time)
+  const activeMinutes = totalTime / 60000;
+  const tabSwitchRate = (usage.tabSwitches || 0) / Math.max(activeMinutes, 1);
+  if (tabSwitchRate > 1) {
+    score *= Math.max(0.7, 1 - (tabSwitchRate - 1) * 0.05);
   }
 
-  const clearBtn = document.getElementById("clear");
+  return Math.round(score);
+}
+
+/**
+ * Calculate stress level
+ */
+function calculateStressLevel(usage) {
+  const tabSwitchRate = (usage.tabSwitches || 0) / Math.max((usage.productive || 0) / 60000, 1);
+  const distractingRatio = (usage.distracting || 0) / Math.max(
+    (usage.productive || 0) + (usage.distracting || 0) + (usage.other || 0),
+    1
+  );
+
+  // High tab switches or high distracting time = higher stress
+  const stress = Math.min(100, Math.round((tabSwitchRate * 5 + distractingRatio * 50)));
+  return stress;
+}
+
+/**
+ * Render focus stats card
+ */
+function renderFocusStats(usage) {
+  const focusScore = calculateFocusScore(usage);
+
+  // Update focus score
+  const focusScoreEl = document.getElementById('focusScore');
+  if (focusScoreEl) {
+    focusScoreEl.textContent = `${focusScore}%`;
+  }
+
+  // Update progress bar
+  const progressFillEl = document.getElementById('progressFill');
+  if (progressFillEl) {
+    progressFillEl.style.width = `${focusScore}%`;
+  }
+
+  // Update stat values
+  const productiveTimeEl = document.getElementById('productiveTime');
+  const distractingTimeEl = document.getElementById('distractingTime');
+  const tabSwitchesEl = document.getElementById('tabSwitches');
+
+  if (productiveTimeEl) {
+    productiveTimeEl.textContent = formatTimeShort(usage.productive || 0);
+  }
+  if (distractingTimeEl) {
+    distractingTimeEl.textContent = formatTimeShort(usage.distracting || 0);
+  }
+  if (tabSwitchesEl) {
+    tabSwitchesEl.textContent = usage.tabSwitches || 0;
+  }
+}
+
+/**
+ * Render AI insights
+ */
+function renderAIInsights(profile) {
+  const insightTextEl = document.getElementById('insightText');
+  const actionSuggestionEl = document.getElementById('actionSuggestion');
+
+  if (!profile) {
+    if (insightTextEl) {
+      insightTextEl.textContent = 'დააგროვე მეტი მონაცემი AI ანალიზისთვის. დაიწყე ბრაუზინგი!';
+    }
+    if (actionSuggestionEl) {
+      actionSuggestionEl.innerHTML = '<strong>💡 რჩევა:</strong> გააგრძელე სამუშაო რამდენიმე წუთი პერსონალიზებული რეკომენდაციებისთვის!';
+    }
+    return;
+  }
+
+  if (insightTextEl) {
+    insightTextEl.textContent = profile.insight || profile.summary || 'ვაანალიზებთ შენს პროდუქტიულობას...';
+  }
+
+  if (actionSuggestionEl) {
+    const action = profile.action || 'გააგრძელე კარგი მუშაობა!';
+    actionSuggestionEl.innerHTML = `<strong>💡 რჩევა:</strong> ${action}`;
+  }
+}
+
+/**
+ * Render mood and stress
+ */
+function renderMoodAndStress(profile, usage) {
+  const mood = profile?.mood || 'focused';
+  const stressLevel = calculateStressLevel(usage);
+
+  const moodEmojiEl = document.getElementById('moodEmoji');
+  const moodValueEl = document.getElementById('moodValue');
+  const stressLevelEl = document.getElementById('stressLevel');
+
+  if (moodEmojiEl) {
+    moodEmojiEl.textContent = getMoodEmoji(mood);
+  }
+  if (moodValueEl) {
+    moodValueEl.textContent = getMoodLabel(mood);
+  }
+  if (stressLevelEl) {
+    stressLevelEl.textContent = `${stressLevel}%`;
+  }
+}
+
+/**
+ * Render smart reminder
+ */
+function renderSmartReminder(usage) {
+  const reminderTextEl = document.getElementById('reminderText');
+  const reminderTimeEl = document.getElementById('reminderTime');
+
+  // Calculate next break time (every 50 minutes of productive work)
+  const productiveMinutes = (usage.productive || 0) / 60000;
+  const minutesSinceBreak = productiveMinutes % 50;
+  const minutesToBreak = Math.round(50 - minutesSinceBreak);
+
+  if (reminderTextEl && reminderTimeEl) {
+    if (minutesToBreak <= 5) {
+      reminderTextEl.textContent = 'დროა 5-წუთიანი შესვენებისთვის! წყალი დალიე და გაიხარე 🌿';
+      reminderTimeEl.textContent = `Break time now!`;
+    } else {
+      reminderTextEl.textContent = 'უახლოვდები შესვენების დროს. გააგრძელე ფოკუსირება! 💪';
+      reminderTimeEl.textContent = `Next break in ${minutesToBreak} minutes`;
+    }
+  }
+}
+
+/**
+ * Render top sites list
+ */
+function renderTopSites(usage) {
+  const topSitesListEl = document.getElementById('topSitesList');
+  if (!topSitesListEl) return;
+
+  topSitesListEl.innerHTML = '';
+
+  // Get all site entries
+  const metaKeys = ['tabSwitches', 'typingKeystrokes', 'idleMs', 'samples', 'mediaEvents', 'productive', 'distracting', 'other'];
+  const siteEntries = Object.entries(usage)
+    .filter(([key, value]) => !metaKeys.includes(key) && typeof value === 'number' && value > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4);
+
+  if (siteEntries.length === 0) {
+    topSitesListEl.innerHTML = `
+      <div class="site-item">
+        <div class="site-name">
+          <span class="site-icon neutral">•</span>
+          No activity yet
+        </div>
+        <span class="site-time">--</span>
+      </div>
+    `;
+    return;
+  }
+
+  // Categorize sites (simple heuristic)
+  const productiveSites = ['github.com', 'stackoverflow.com', 'docs.google.com', 'drive.google.com', 'notion.so', 'figma.com'];
+  const distractingSites = ['youtube.com', 'facebook.com', 'twitter.com', 'instagram.com', 'reddit.com', 'tiktok.com'];
+
+  siteEntries.forEach(([site, time]) => {
+    let category = 'neutral';
+    if (productiveSites.some(ps => site.includes(ps))) {
+      category = 'productive';
+    } else if (distractingSites.some(ds => site.includes(ds))) {
+      category = 'distracting';
+    }
+
+    const icon = category === 'productive' ? '✓' : (category === 'distracting' ? '!' : '•');
+
+    const siteItem = document.createElement('div');
+    siteItem.className = 'site-item';
+    siteItem.innerHTML = `
+      <div class="site-name">
+        <span class="site-icon ${category}">${icon}</span>
+        ${site}
+      </div>
+      <span class="site-time">${formatTimeShort(time)}</span>
+    `;
+    topSitesListEl.appendChild(siteItem);
+  });
+}
+
+/**
+ * Main render function - updates all UI elements
+ */
+function renderAll() {
+  chrome.storage.local.get(['usage', 'emotionProfile'], (result) => {
+    const usage = result.usage || {};
+    const profile = result.emotionProfile;
+
+    renderFocusStats(usage);
+    renderAIInsights(profile);
+    renderMoodAndStress(profile, usage);
+    renderSmartReminder(usage);
+    renderTopSites(usage);
+  });
+}
+
+/**
+ * Initialize when DOM is ready
+ */
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('[Popup] Initializing new mockup UI...');
+
+  // Initial render
+  renderAll();
+
+  // Dashboard button
+  const dashboardBtn = document.getElementById('dashboard');
+  if (dashboardBtn) {
+    dashboardBtn.addEventListener('click', () => {
+      console.log('[Popup] Opening dashboard...');
+      chrome.tabs.create({ url: chrome.runtime.getURL('dashboard.html') });
+    });
+  }
+
+  // Refresh Insight button (AI Report)
+  const refreshInsightBtn = document.getElementById('refreshInsight');
+  if (refreshInsightBtn) {
+    refreshInsightBtn.addEventListener('click', () => {
+      console.log('[Popup] Refresh Insight clicked');
+
+      refreshInsightBtn.disabled = true;
+      refreshInsightBtn.textContent = '⏳ Analyzing...';
+
+      chrome.runtime.sendMessage({ type: 'recomputeProfile' }, (response) => {
+        console.log('[Popup] Recompute response:', response);
+
+        // Wait a bit for the profile to be saved
+        setTimeout(() => {
+          renderAll();
+        }, 500);
+
+        refreshInsightBtn.disabled = false;
+        refreshInsightBtn.textContent = '✨ AI Report';
+      });
+    });
+  }
+
+  // Settings button
+  const settingsBtn = document.getElementById('settings');
+  if (settingsBtn) {
+    settingsBtn.addEventListener('click', () => {
+      console.log('[Popup] Opening settings...');
+      chrome.runtime.openOptionsPage();
+    });
+  }
+
+  // Clear/Goals button (repurposed as clear for now)
+  const clearBtn = document.getElementById('clear');
   if (clearBtn) {
-    clearBtn.addEventListener("click", () => {
-      console.log("[Popup] Clear Data clicked");
+    clearBtn.addEventListener('click', () => {
+      console.log('[Popup] Clear Data clicked');
 
-      if (confirm("Clear all tracking data?")) {
+      if (confirm('Clear all tracking data?')) {
         clearBtn.disabled = true;
-        clearBtn.textContent = "Clearing...";
+        clearBtn.textContent = '🔄 Clearing...';
 
-        chrome.runtime.sendMessage({ type: "resetUsage" }, (res) => {
-          console.log("[Popup] Reset response:", res);
-          renderUsage();
-          renderEmotion();
-          renderRemindersList();
+        chrome.runtime.sendMessage({ type: 'resetUsage' }, (response) => {
+          console.log('[Popup] Reset response:', response);
+          renderAll();
           clearBtn.disabled = false;
-          clearBtn.textContent = "Clear Data";
+          clearBtn.textContent = '🎯 Goals';
         });
       }
     });
   }
 
-  const refreshBtn = document.getElementById("refreshInsight");
-  if (refreshBtn) {
-    refreshBtn.addEventListener("click", () => {
-      console.log("[Popup] Refresh Insight clicked");
-      const prevText = refreshBtn.textContent;
-      refreshBtn.disabled = true;
-      refreshBtn.textContent = "Refreshing...";
-
-      chrome.runtime.sendMessage({ type: "recomputeProfile" }, (resp) => {
-        console.log("[Popup] Recompute response:", resp);
-
-        if (resp && resp.ok && resp.profile) {
-          renderEmotionFromProfile(resp.profile);
-        } else {
-          setTimeout(() => {
-            renderEmotion();
-          }, 500);
-        }
-
-        // Also refresh usage and reminders
-        renderUsage();
-        renderRemindersList();
-
-        refreshBtn.disabled = false;
-        refreshBtn.textContent = prevText;
-      });
-    });
-  }
-
-  const dashboardBtn = document.getElementById("dashboard");
-  if (dashboardBtn) {
-    dashboardBtn.addEventListener("click", () => {
-      console.log("[Popup] Opening dashboard...");
-      chrome.tabs.create({ url: chrome.runtime.getURL("dashboard.html") });
-    });
-  }
-
-  const settingsBtn = document.getElementById("settings");
-  if (settingsBtn) {
-    settingsBtn.addEventListener("click", () => {
-      console.log("[Popup] Opening AI settings...");
-      chrome.runtime.openOptionsPage();
-    });
-  }
-
-  console.log("[Popup] All event listeners attached");
+  console.log('[Popup] All event listeners attached');
 });
