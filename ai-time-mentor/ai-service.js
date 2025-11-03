@@ -1,6 +1,14 @@
 /**
  * AI Service Module for AI Time Mentor
  * Supports multiple AI providers: Google Gemini (Free), Groq (Free), OpenAI (Paid)
+ *
+ * Features:
+ * - Input validation and sanitization
+ * - Automatic retry with exponential backoff
+ * - Request timeout handling
+ * - Response caching
+ * - Rate limiting
+ * - Comprehensive error handling
  */
 
 class AIService {
@@ -25,6 +33,25 @@ class AIService {
         models: ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo']
       }
     };
+
+    // Configuration
+    this.config = {
+      maxRetries: 3,
+      retryDelayMs: 1000,
+      timeoutMs: 30000,
+      cacheExpiryMs: 5 * 60 * 1000, // 5 minutes
+      rateLimitWindow: 60000, // 1 minute
+      maxRequestsPerWindow: 20
+    };
+
+    // Rate limiting
+    this.requestTimestamps = [];
+
+    // Cache for insights
+    this.cache = new Map();
+
+    // In-flight request tracking for deduplication
+    this.inFlightRequests = new Map();
   }
 
   /**
@@ -44,7 +71,168 @@ class AIService {
    * Save AI configuration to storage
    */
   async saveConfig(config) {
+    // Validate config before saving
+    this.validateConfig(config);
     await chrome.storage.local.set({ aiConfig: config });
+  }
+
+  /**
+   * Validate AI configuration
+   */
+  validateConfig(config) {
+    if (!config || typeof config !== 'object') {
+      throw new Error('Invalid config: must be an object');
+    }
+
+    if (config.provider && !this.providers[config.provider]) {
+      throw new Error(`Invalid provider: ${config.provider}`);
+    }
+
+    if (config.provider && config.model) {
+      const provider = this.providers[config.provider];
+      if (!provider.models.includes(config.model)) {
+        throw new Error(`Invalid model ${config.model} for provider ${config.provider}`);
+      }
+    }
+
+    if (config.apiKey && typeof config.apiKey !== 'string') {
+      throw new Error('Invalid apiKey: must be a string');
+    }
+  }
+
+  /**
+   * Validate productivity data
+   */
+  validateProductivityData(data) {
+    if (!data || typeof data !== 'object') {
+      throw new Error('Invalid productivity data: must be an object');
+    }
+
+    const requiredFields = ['productive', 'distracting'];
+    for (const field of requiredFields) {
+      if (typeof data[field] !== 'number' || data[field] < 0) {
+        throw new Error(`Invalid ${field}: must be a non-negative number`);
+      }
+    }
+  }
+
+  /**
+   * Check rate limit
+   */
+  checkRateLimit() {
+    const now = Date.now();
+
+    // Remove old timestamps outside the window
+    this.requestTimestamps = this.requestTimestamps.filter(
+      timestamp => now - timestamp < this.config.rateLimitWindow
+    );
+
+    if (this.requestTimestamps.length >= this.config.maxRequestsPerWindow) {
+      const oldestTimestamp = this.requestTimestamps[0];
+      const waitTime = Math.ceil((oldestTimestamp + this.config.rateLimitWindow - now) / 1000);
+      throw new Error(`Rate limit exceeded. Please wait ${waitTime} seconds.`);
+    }
+
+    this.requestTimestamps.push(now);
+  }
+
+  /**
+   * Get cached response
+   */
+  getCache(key) {
+    const cached = this.cache.get(key);
+    if (!cached) return null;
+
+    const now = Date.now();
+    if (now - cached.timestamp > this.config.cacheExpiryMs) {
+      this.cache.delete(key);
+      return null;
+    }
+
+    return cached.data;
+  }
+
+  /**
+   * Set cached response
+   */
+  setCache(key, data) {
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now()
+    });
+  }
+
+  /**
+   * Generate cache key
+   */
+  generateCacheKey(provider, model, prompt) {
+    // Simple hash function for cache key
+    const str = `${provider}:${model}:${prompt}`;
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return `cache_${hash}`;
+  }
+
+  /**
+   * Fetch with timeout
+   */
+  async fetchWithTimeout(url, options, timeoutMs) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error(`Request timeout after ${timeoutMs}ms`);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Retry logic with exponential backoff
+   */
+  async retryWithBackoff(fn, maxRetries = this.config.maxRetries) {
+    let lastError;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        lastError = error;
+
+        // Don't retry on client errors (4xx)
+        if (error.message.includes('API error') && error.message.includes('400')) {
+          throw error;
+        }
+
+        if (attempt < maxRetries - 1) {
+          const delay = this.config.retryDelayMs * Math.pow(2, attempt);
+          console.log(`Retry attempt ${attempt + 1}/${maxRetries} after ${delay}ms`);
+          await this.sleep(delay);
+        }
+      }
+    }
+
+    throw new Error(`Failed after ${maxRetries} attempts: ${lastError.message}`);
+  }
+
+  /**
+   * Sleep helper
+   */
+  sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   /**
@@ -69,14 +257,29 @@ class AIService {
    * Generate AI insights from productivity data
    */
   async generateInsights(productivityData) {
-    const config = await this.getConfig();
-    if (!config.enabled || !config.apiKey) {
-      return null;
-    }
-
-    const prompt = this.buildInsightsPrompt(productivityData);
-
     try {
+      // Validate input
+      this.validateProductivityData(productivityData);
+
+      const config = await this.getConfig();
+      if (!config.enabled || !config.apiKey) {
+        console.log('AI not enabled or API key missing');
+        return null;
+      }
+
+      const prompt = this.buildInsightsPrompt(productivityData);
+
+      // Check cache
+      const cacheKey = this.generateCacheKey(config.provider, config.model, prompt);
+      const cached = this.getCache(cacheKey);
+      if (cached) {
+        console.log('Returning cached insights');
+        return cached;
+      }
+
+      // Check rate limit
+      this.checkRateLimit();
+
       const response = await this.generateText(
         config.provider,
         config.apiKey,
@@ -85,7 +288,12 @@ class AIService {
         { maxTokens: 500 }
       );
 
-      return this.parseInsightsResponse(response);
+      const insights = this.parseInsightsResponse(response);
+
+      // Cache the result
+      this.setCache(cacheKey, insights);
+
+      return insights;
     } catch (error) {
       console.error('AI insights generation failed:', error);
       return null;
@@ -96,14 +304,22 @@ class AIService {
    * Generate weekly report
    */
   async generateWeeklyReport(weeklyData) {
-    const config = await this.getConfig();
-    if (!config.enabled || !config.apiKey) {
-      throw new Error('AI not configured');
-    }
-
-    const prompt = this.buildWeeklyReportPrompt(weeklyData);
-
     try {
+      // Validate input
+      if (!weeklyData || typeof weeklyData !== 'object') {
+        throw new Error('Invalid weekly data: must be an object');
+      }
+
+      const config = await this.getConfig();
+      if (!config.enabled || !config.apiKey) {
+        throw new Error('AI not configured or not enabled');
+      }
+
+      const prompt = this.buildWeeklyReportPrompt(weeklyData);
+
+      // Check rate limit
+      this.checkRateLimit();
+
       const response = await this.generateText(
         config.provider,
         config.apiKey,
@@ -114,8 +330,8 @@ class AIService {
 
       return response;
     } catch (error) {
-      console.error('Weekly report generation failed:', error);
-      throw error;
+      console.error('Weekly report generation failed:', error.message);
+      throw new Error(`Failed to generate weekly report: ${error.message}`);
     }
   }
 
@@ -123,14 +339,20 @@ class AIService {
    * Generate personalized goals
    */
   async generateGoals(productivityData) {
-    const config = await this.getConfig();
-    if (!config.enabled || !config.apiKey) {
-      throw new Error('AI not configured');
-    }
-
-    const prompt = this.buildGoalsPrompt(productivityData);
-
     try {
+      // Validate input
+      this.validateProductivityData(productivityData);
+
+      const config = await this.getConfig();
+      if (!config.enabled || !config.apiKey) {
+        throw new Error('AI not configured or not enabled');
+      }
+
+      const prompt = this.buildGoalsPrompt(productivityData);
+
+      // Check rate limit
+      this.checkRateLimit();
+
       const response = await this.generateText(
         config.provider,
         config.apiKey,
@@ -141,8 +363,8 @@ class AIService {
 
       return this.parseGoalsResponse(response);
     } catch (error) {
-      console.error('Goals generation failed:', error);
-      throw error;
+      console.error('Goals generation failed:', error.message);
+      throw new Error(`Failed to generate goals: ${error.message}`);
     }
   }
 
@@ -150,21 +372,32 @@ class AIService {
    * Build prompt for insights generation
    */
   buildInsightsPrompt(data) {
-    const totalTime = data.productive + data.distracting + data.other;
-    const productivePct = totalTime > 0 ? ((data.productive / totalTime) * 100).toFixed(1) : 0;
-    const distractingPct = totalTime > 0 ? ((data.distracting / totalTime) * 100).toFixed(1) : 0;
+    // Safe defaults for optional fields
+    const productive = data.productive || 0;
+    const distracting = data.distracting || 0;
+    const other = data.other || 0;
+    const tabSwitches = data.tabSwitches || 0;
+    const typingKeystrokes = data.typingKeystrokes || 0;
+    const idleMs = data.idleMs || 0;
+    const focusPct = data.focusPct || 0;
+    const stress = data.stress || 0;
+    const mood = data.mood || 'unknown';
+
+    const totalTime = productive + distracting + other;
+    const productivePct = totalTime > 0 ? ((productive / totalTime) * 100).toFixed(1) : 0;
+    const distractingPct = totalTime > 0 ? ((distracting / totalTime) * 100).toFixed(1) : 0;
 
     return `You are an AI productivity coach analyzing user's work patterns. Based on the following data, provide a brief insight and actionable recommendation.
 
 DATA:
-- Productive time: ${this.formatTime(data.productive)} (${productivePct}%)
-- Distracting time: ${this.formatTime(data.distracting)} (${distractingPct}%)
-- Tab switches: ${data.tabSwitches}
-- Keystrokes: ${data.typingKeystrokes}
-- Idle time: ${this.formatTime(data.idleMs)}
-- Focus score: ${data.focusPct || 0}%
-- Stress level: ${data.stress ? (data.stress * 100).toFixed(0) : 0}%
-- Current mood: ${data.mood || 'unknown'}
+- Productive time: ${this.formatTime(productive)} (${productivePct}%)
+- Distracting time: ${this.formatTime(distracting)} (${distractingPct}%)
+- Tab switches: ${tabSwitches}
+- Keystrokes: ${typingKeystrokes}
+- Idle time: ${this.formatTime(idleMs)}
+- Focus score: ${focusPct}%
+- Stress level: ${(stress * 100).toFixed(0)}%
+- Current mood: ${mood}
 
 Respond in JSON format:
 {
@@ -263,16 +496,36 @@ Generate 3 specific, measurable, achievable goals in JSON format:
   async generateText(provider, apiKey, model, prompt, options = {}) {
     const maxTokens = options.maxTokens || 500;
 
-    switch (provider) {
-      case 'gemini':
-        return await this.callGemini(apiKey, model, prompt, maxTokens);
-      case 'groq':
-        return await this.callGroq(apiKey, model, prompt, maxTokens);
-      case 'openai':
-        return await this.callOpenAI(apiKey, model, prompt, maxTokens);
-      default:
-        throw new Error('Unknown provider: ' + provider);
+    // Validate inputs
+    if (!provider || !this.providers[provider]) {
+      throw new Error(`Invalid provider: ${provider}`);
     }
+
+    if (!apiKey || typeof apiKey !== 'string') {
+      throw new Error('Invalid API key');
+    }
+
+    if (!model || !this.providers[provider].models.includes(model)) {
+      throw new Error(`Invalid model ${model} for provider ${provider}`);
+    }
+
+    if (!prompt || typeof prompt !== 'string') {
+      throw new Error('Invalid prompt: must be a non-empty string');
+    }
+
+    // Use retry logic for all API calls
+    return await this.retryWithBackoff(async () => {
+      switch (provider) {
+        case 'gemini':
+          return await this.callGemini(apiKey, model, prompt, maxTokens);
+        case 'groq':
+          return await this.callGroq(apiKey, model, prompt, maxTokens);
+        case 'openai':
+          return await this.callOpenAI(apiKey, model, prompt, maxTokens);
+        default:
+          throw new Error('Unknown provider: ' + provider);
+      }
+    });
   }
 
   /**
@@ -281,7 +534,7 @@ Generate 3 specific, measurable, achievable goals in JSON format:
   async callGemini(apiKey, model, prompt, maxTokens) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-    const response = await fetch(url, {
+    const response = await this.fetchWithTimeout(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -295,22 +548,33 @@ Generate 3 specific, measurable, achievable goals in JSON format:
           temperature: 0.7
         }
       })
-    });
+    }, this.config.timeoutMs);
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`Gemini API error: ${error.error?.message || response.statusText}`);
+      let errorMessage = response.statusText;
+      try {
+        const error = await response.json();
+        errorMessage = error.error?.message || errorMessage;
+      } catch (e) {
+        // If JSON parsing fails, use statusText
+      }
+      throw new Error(`Gemini API error (${response.status}): ${errorMessage}`);
     }
 
     const data = await response.json();
-    return data.candidates[0]?.content?.parts[0]?.text || '';
+
+    if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
+      throw new Error('Invalid response format from Gemini API');
+    }
+
+    return data.candidates[0].content.parts[0].text;
   }
 
   /**
    * Call Groq API
    */
   async callGroq(apiKey, model, prompt, maxTokens) {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const response = await this.fetchWithTimeout('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -325,22 +589,33 @@ Generate 3 specific, measurable, achievable goals in JSON format:
         max_tokens: maxTokens,
         temperature: 0.7
       })
-    });
+    }, this.config.timeoutMs);
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`Groq API error: ${error.error?.message || response.statusText}`);
+      let errorMessage = response.statusText;
+      try {
+        const error = await response.json();
+        errorMessage = error.error?.message || errorMessage;
+      } catch (e) {
+        // If JSON parsing fails, use statusText
+      }
+      throw new Error(`Groq API error (${response.status}): ${errorMessage}`);
     }
 
     const data = await response.json();
-    return data.choices[0]?.message?.content || '';
+
+    if (!data.choices || !data.choices[0]?.message?.content) {
+      throw new Error('Invalid response format from Groq API');
+    }
+
+    return data.choices[0].message.content;
   }
 
   /**
    * Call OpenAI API
    */
   async callOpenAI(apiKey, model, prompt, maxTokens) {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await this.fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -355,15 +630,26 @@ Generate 3 specific, measurable, achievable goals in JSON format:
         max_tokens: maxTokens,
         temperature: 0.7
       })
-    });
+    }, this.config.timeoutMs);
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`OpenAI API error: ${error.error?.message || response.statusText}`);
+      let errorMessage = response.statusText;
+      try {
+        const error = await response.json();
+        errorMessage = error.error?.message || errorMessage;
+      } catch (e) {
+        // If JSON parsing fails, use statusText
+      }
+      throw new Error(`OpenAI API error (${response.status}): ${errorMessage}`);
     }
 
     const data = await response.json();
-    return data.choices[0]?.message?.content || '';
+
+    if (!data.choices || !data.choices[0]?.message?.content) {
+      throw new Error('Invalid response format from OpenAI API');
+    }
+
+    return data.choices[0].message.content;
   }
 
   /**
