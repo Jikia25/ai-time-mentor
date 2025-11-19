@@ -7,23 +7,28 @@ class AIService {
   constructor() {
     this.providers = {
       gemini: {
-        name: 'Google Gemini',
-        endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent',
+        name: "Google Gemini",
+        endpoint:
+          "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent",
         free: true,
-        models: ['gemini-pro', 'gemini-1.5-flash']
+        models: ["gemini-pro", "gemini-1.5-flash"],
       },
       groq: {
-        name: 'Groq',
-        endpoint: 'https://api.groq.com/openai/v1/chat/completions',
+        name: "Groq",
+        endpoint: "https://api.groq.com/openai/v1/chat/completions",
         free: true,
-        models: ['llama-3.1-8b-instant', 'llama-3.1-70b-versatile', 'mixtral-8x7b-32768']
+        models: [
+          "llama-3.1-8b-instant",
+          "llama-3.1-70b-versatile",
+          "mixtral-8x7b-32768",
+        ],
       },
       openai: {
-        name: 'OpenAI',
-        endpoint: 'https://api.openai.com/v1/chat/completions',
+        name: "OpenAI",
+        endpoint: "https://api.openai.com/v1/chat/completions",
         free: false,
-        models: ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo']
-      }
+        models: ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo"],
+      },
     };
   }
 
@@ -31,13 +36,15 @@ class AIService {
    * Get AI configuration from storage
    */
   async getConfig() {
-    const result = await chrome.storage.local.get(['aiConfig']);
-    return result.aiConfig || {
-      provider: 'gemini',
-      model: 'gemini-pro',
-      apiKey: '',
-      enabled: false
-    };
+    const result = await chrome.storage.local.get(["aiConfig"]);
+    return (
+      result.aiConfig || {
+        provider: "gemini",
+        model: "gemini-pro",
+        apiKey: "",
+        enabled: false,
+      }
+    );
   }
 
   /**
@@ -87,7 +94,7 @@ class AIService {
 
       return this.parseInsightsResponse(response);
     } catch (error) {
-      console.error('AI insights generation failed:', error);
+      console.error("AI insights generation failed:", error);
       return null;
     }
   }
@@ -98,7 +105,7 @@ class AIService {
   async generateWeeklyReport(weeklyData) {
     const config = await this.getConfig();
     if (!config.enabled || !config.apiKey) {
-      throw new Error('AI not configured');
+      throw new Error("AI not configured");
     }
 
     const prompt = this.buildWeeklyReportPrompt(weeklyData);
@@ -114,7 +121,7 @@ class AIService {
 
       return response;
     } catch (error) {
-      console.error('Weekly report generation failed:', error);
+      console.error("Weekly report generation failed:", error);
       throw error;
     }
   }
@@ -125,7 +132,7 @@ class AIService {
   async generateGoals(productivityData) {
     const config = await this.getConfig();
     if (!config.enabled || !config.apiKey) {
-      throw new Error('AI not configured');
+      throw new Error("AI not configured");
     }
 
     const prompt = this.buildGoalsPrompt(productivityData);
@@ -141,7 +148,7 @@ class AIService {
 
       return this.parseGoalsResponse(response);
     } catch (error) {
-      console.error('Goals generation failed:', error);
+      console.error("Goals generation failed:", error);
       throw error;
     }
   }
@@ -151,8 +158,10 @@ class AIService {
    */
   buildInsightsPrompt(data) {
     const totalTime = data.productive + data.distracting + data.other;
-    const productivePct = totalTime > 0 ? ((data.productive / totalTime) * 100).toFixed(1) : 0;
-    const distractingPct = totalTime > 0 ? ((data.distracting / totalTime) * 100).toFixed(1) : 0;
+    const productivePct =
+      totalTime > 0 ? ((data.productive / totalTime) * 100).toFixed(1) : 0;
+    const distractingPct =
+      totalTime > 0 ? ((data.distracting / totalTime) * 100).toFixed(1) : 0;
 
     return `You are an AI productivity coach analyzing user's work patterns. Based on the following data, provide a brief insight and actionable recommendation.
 
@@ -164,7 +173,7 @@ DATA:
 - Idle time: ${this.formatTime(data.idleMs)}
 - Focus score: ${data.focusPct || 0}%
 - Stress level: ${data.stress ? (data.stress * 100).toFixed(0) : 0}%
-- Current mood: ${data.mood || 'unknown'}
+- Current mood: ${data.mood || "unknown"}
 
 Respond in JSON format:
 {
@@ -229,15 +238,15 @@ Generate 3 specific, measurable, achievable goals in JSON format:
 
       // Fallback: extract text
       return {
-        insight: response.split('\n')[0] || response.substring(0, 200),
-        action: 'გააგრძელე კარგი მუშაობა!',
-        mood: 'focused'
+        insight: response.split("\n")[0] || response.substring(0, 200),
+        action: "გააგრძელე კარგი მუშაობა!",
+        mood: "focused",
       };
     } catch (error) {
       return {
         insight: response.substring(0, 200),
-        action: 'გააგრძელე კარგი მუშაობა!',
-        mood: 'focused'
+        action: "გააგრძელე კარგი მუშაობა!",
+        mood: "focused",
       };
     }
   }
@@ -264,14 +273,14 @@ Generate 3 specific, measurable, achievable goals in JSON format:
     const maxTokens = options.maxTokens || 500;
 
     switch (provider) {
-      case 'gemini':
+      case "gemini":
         return await this.callGemini(apiKey, model, prompt, maxTokens);
-      case 'groq':
+      case "groq":
         return await this.callGroq(apiKey, model, prompt, maxTokens);
-      case 'openai':
+      case "openai":
         return await this.callOpenAI(apiKey, model, prompt, maxTokens);
       default:
-        throw new Error('Unknown provider: ' + provider);
+        throw new Error("Unknown provider: " + provider);
     }
   }
 
@@ -282,95 +291,112 @@ Generate 3 specific, measurable, achievable goals in JSON format:
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     const response = await fetch(url, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json'
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        contents: [{
-          parts: [{ text: prompt }]
-        }],
+        contents: [
+          {
+            parts: [{ text: prompt }],
+          },
+        ],
         generationConfig: {
           maxOutputTokens: maxTokens,
-          temperature: 0.7
-        }
-      })
+          temperature: 0.7,
+        },
+      }),
     });
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(`Gemini API error: ${error.error?.message || response.statusText}`);
+      throw new Error(
+        `Gemini API error: ${error.error?.message || response.statusText}`
+      );
     }
 
     const data = await response.json();
-    return data.candidates[0]?.content?.parts[0]?.text || '';
+    return data.candidates[0]?.content?.parts[0]?.text || "";
   }
 
   /**
    * Call Groq API
    */
   async callGroq(apiKey, model, prompt, maxTokens) {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [
-          { role: 'system', content: 'You are a helpful AI productivity coach.' },
-          { role: 'user', content: prompt }
-        ],
-        max_tokens: maxTokens,
-        temperature: 0.7
-      })
-    });
+    const response = await fetch(
+      "https://api.groq.com/openai/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            {
+              role: "system",
+              content: "You are a helpful AI productivity coach.",
+            },
+            { role: "user", content: prompt },
+          ],
+          max_tokens: maxTokens,
+          temperature: 0.7,
+        }),
+      }
+    );
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(`Groq API error: ${error.error?.message || response.statusText}`);
+      throw new Error(
+        `Groq API error: ${error.error?.message || response.statusText}`
+      );
     }
 
     const data = await response.json();
-    return data.choices[0]?.message?.content || '';
+    return data.choices[0]?.message?.content || "";
   }
 
   /**
    * Call OpenAI API
    */
   async callOpenAI(apiKey, model, prompt, maxTokens) {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: model,
         messages: [
-          { role: 'system', content: 'You are a helpful AI productivity coach.' },
-          { role: 'user', content: prompt }
+          {
+            role: "system",
+            content: "You are a helpful AI productivity coach.",
+          },
+          { role: "user", content: prompt },
         ],
         max_tokens: maxTokens,
-        temperature: 0.7
-      })
+        temperature: 0.7,
+      }),
     });
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(`OpenAI API error: ${error.error?.message || response.statusText}`);
+      throw new Error(
+        `OpenAI API error: ${error.error?.message || response.statusText}`
+      );
     }
 
     const data = await response.json();
-    return data.choices[0]?.message?.content || '';
+    return data.choices[0]?.message?.content || "";
   }
 
   /**
    * Format time helper
    */
   formatTime(ms) {
-    if (!ms || ms < 0) return '0m';
+    if (!ms || ms < 0) return "0m";
     const hours = Math.floor(ms / 3600000);
     const minutes = Math.floor((ms % 3600000) / 60000);
     if (hours > 0) return `${hours}h ${minutes}m`;
@@ -378,7 +404,4 @@ Generate 3 specific, measurable, achievable goals in JSON format:
   }
 }
 
-// Export for use in other scripts
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = AIService;
-}
+export default AIService;

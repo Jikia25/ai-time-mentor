@@ -1,21 +1,17 @@
 // background.optimized.js - Full final: tracking, batching, mediaPlayMs, reminders, notifications
 
 // Import AI service for service worker
-try {
-  importScripts('ai-service.js');
-} catch (e) {
-  console.warn('[TM] Could not import ai-service.js:', e);
-}
+import AIService from "./ai-service.js";
 
 (function () {
   // --- AI Service Integration ---
   let aiService = null;
   try {
-    if (typeof AIService !== 'undefined') {
+    if (typeof AIService !== "undefined") {
       aiService = new AIService();
     }
   } catch (e) {
-    console.warn('[TM] AI Service not available:', e);
+    console.warn("[TM] AI Service not available:", e);
   }
 
   // --- Helpers: tiny promise wrappers for chrome.* callbacks ---
@@ -346,7 +342,7 @@ try {
             ...normalized,
             focusPct: profile.focusPct,
             stress: profile.stress,
-            mood: profile.mood
+            mood: profile.mood,
           });
 
           if (aiInsights) {
@@ -370,7 +366,11 @@ try {
         profileSource: profileSource,
         profileUpdatedAt: Date.now(),
       });
-      console.log("[TM] ✅ emotionProfile updated", finalProfile, `(${profileSource})`);
+      console.log(
+        "[TM] ✅ emotionProfile updated",
+        finalProfile,
+        `(${profileSource})`
+      );
 
       // schedule reminders based on the freshly computed profile
       try {
@@ -824,7 +824,7 @@ try {
             const profile = res.emotionProfile || {};
             const goals = await aiService.generateGoals({
               ...usage,
-              ...profile
+              ...profile,
             });
             sendResponse?.({ ok: true, goals });
           } catch (e) {
